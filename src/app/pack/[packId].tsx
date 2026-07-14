@@ -1,11 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 
+import { progressRatio, usePackProgress, usePacks } from '@/api/queries';
 import { AppText } from '@/components/AppText';
 import { ExerciseTile } from '@/components/ExerciseTile';
 import { ProgressRing } from '@/components/ProgressRing';
 import { TopBar } from '@/components/TopBar';
-import { MOCK_PACKS } from '@/lib/mock';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, radii, spacing, type } from '@/lib/theme/tokens';
 
@@ -13,7 +13,24 @@ export default function PracticeDashboardScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { packId } = useLocalSearchParams<{ packId: string }>();
-  const pack = MOCK_PACKS.find((p) => p.id === Number(packId)) ?? MOCK_PACKS[0];
+  const id = Number(packId);
+
+  const packsQuery = usePacks();
+  const progressQuery = usePackProgress();
+
+  const pack = (packsQuery.data ?? []).find((p) => p.id === id);
+  const progress = progressRatio(
+    (progressQuery.data ?? []).find((row) => row.pack_id === id),
+  );
+
+  if (!pack) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <TopBar back />
+        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -49,10 +66,11 @@ export default function PracticeDashboardScreen() {
               Overall Progress
             </AppText>
             <AppText style={[type.labelSm, { color: colors.onSurfaceVariant }]}>
-              PACK {pack.packNumber}: {pack.firstWord.toUpperCase()} – {pack.lastWord.toUpperCase()}
+              PACK {pack.pack_number}: {pack.first_word.toUpperCase()} –{' '}
+              {pack.last_word.toUpperCase()}
             </AppText>
           </View>
-          <ProgressRing progress={pack.progress} />
+          <ProgressRing progress={progress} />
         </View>
 
         {/* Exercise tiles */}
@@ -60,7 +78,7 @@ export default function PracticeDashboardScreen() {
           <View style={{ flex: 1 }}>
             <ExerciseTile
               kind="flashcards"
-              subtitle={`Review ${pack.wordCount} words`}
+              subtitle={`Review ${pack.word_count} words`}
               onPress={() => router.push(`/practice/${pack.id}/flashcards`)}
             />
           </View>

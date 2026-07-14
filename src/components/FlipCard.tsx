@@ -11,10 +11,10 @@ import { AppText } from '@/components/AppText';
 import { MaterialSymbol } from '@/components/MaterialSymbol';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, radii, spacing, type } from '@/lib/theme/tokens';
-import { POS_LABELS, type Word } from '@/lib/mock';
+import { POS_LABELS, type WordRow } from '@/types/models';
 
 interface Props {
-  word: Word;
+  word: WordRow;
   flipped: boolean;
   onFlip: () => void;
   onSpeak?: () => void;
@@ -47,6 +47,8 @@ export function FlipCard({ word, flipped, onFlip, onSpeak }: Props) {
     padding: spacing.cardPadding,
     backfaceVisibility: 'hidden' as const,
   };
+
+  const example = word.example_sentences?.[0];
 
   return (
     <View style={{ height: 380 }}>
@@ -114,11 +116,13 @@ export function FlipCard({ word, flipped, onFlip, onSpeak }: Props) {
                 paddingVertical: 4,
               }}>
               <AppText style={[type.labelSm, { color: colors.onPrimaryFixed }]}>
-                {(word.partOfSpeech && POS_LABELS[word.partOfSpeech]) ?? word.partOfSpeech ?? ''}
+                {(word.part_of_speech && POS_LABELS[word.part_of_speech]) ??
+                  word.part_of_speech ??
+                  ''}
               </AppText>
             </View>
             <AppText style={[type.bodyLg, { color: colors.onSurface }]}>{word.definition}</AppText>
-            {word.exampleSentences[0] ? (
+            {example ? (
               <View
                 style={{
                   backgroundColor: colors.surfaceContainerLow,
@@ -128,7 +132,7 @@ export function FlipCard({ word, flipped, onFlip, onSpeak }: Props) {
                   borderLeftColor: colors.secondaryFixedDim,
                 }}>
                 <AppText style={[type.bodyMd, { color: colors.onSurfaceVariant, fontStyle: 'italic' }]}>
-                  {word.exampleSentences[0]}
+                  {example}
                 </AppText>
               </View>
             ) : null}

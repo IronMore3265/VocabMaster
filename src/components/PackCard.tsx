@@ -6,14 +6,16 @@ import { PressableScale } from '@/components/PressableScale';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, radii, spacing, type } from '@/lib/theme/tokens';
-import type { Pack } from '@/lib/mock';
+import { packTitle, type PackRow } from '@/types/models';
 
 interface Props {
-  pack: Pack;
+  pack: PackRow;
+  /** 0..1 mastered ratio. */
+  progress: number;
   onPress: () => void;
 }
 
-export function PackCard({ pack, onPress }: Props) {
+export function PackCard({ pack, progress, onPress }: Props) {
   const { colors } = useTheme();
 
   return (
@@ -42,19 +44,19 @@ export function PackCard({ pack, onPress }: Props) {
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <AppText style={[type.headlineSm, { fontSize: 16, lineHeight: 22 }]}>
-            Pack {pack.packNumber}: {pack.firstWord} – {pack.lastWord}
+            {packTitle(pack)}
           </AppText>
           <AppText style={[type.labelSm, { color: colors.onSurfaceVariant }]}>
-            {pack.wordCount} WORDS
+            {pack.word_count} WORDS
           </AppText>
         </View>
         <MaterialSymbol name="chevron_right" size={24} color={colors.outline} />
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <ProgressBar progress={pack.progress} height={6} />
+        <ProgressBar progress={progress} height={6} />
         <AppText style={[type.labelSm, { color: colors.onSurfaceVariant }]}>
-          {Math.round(pack.progress * 100)}%
+          {Math.round(progress * 100)}%
         </AppText>
       </View>
     </PressableScale>

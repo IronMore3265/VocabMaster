@@ -7,19 +7,21 @@ import { PressableScale } from '@/components/PressableScale';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, radii, spacing, type } from '@/lib/theme/tokens';
-import type { Book } from '@/lib/mock';
+import type { BookMeta } from '@/types/models';
 
-const GRADIENTS: Record<1 | 2, [string, string]> = {
+const GRADIENTS: Record<number, [string, string]> = {
   1: ['#e1e0ff', '#c0c1ff'],
   2: ['#6cf8bb', '#4edea3'],
 };
 
 interface Props {
-  book: Book;
+  meta: BookMeta;
+  /** 0..1 mastered ratio across the book. */
+  progress: number;
   onPress: () => void;
 }
 
-export function BookCard({ book, onPress }: Props) {
+export function BookCard({ meta, progress, onPress }: Props) {
   const { colors } = useTheme();
 
   return (
@@ -34,7 +36,7 @@ export function BookCard({ book, onPress }: Props) {
         cardShadow,
       ]}>
       <LinearGradient
-        colors={GRADIENTS[book.book]}
+        colors={GRADIENTS[meta.book] ?? GRADIENTS[1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ height: 148, alignItems: 'center', justifyContent: 'center' }}>
@@ -42,9 +44,9 @@ export function BookCard({ book, onPress }: Props) {
       </LinearGradient>
 
       <View style={{ padding: spacing.md, gap: 2 }}>
-        <AppText style={[type.headlineSm, { color: colors.onSurface }]}>{book.title}</AppText>
+        <AppText style={[type.headlineSm, { color: colors.onSurface }]}>{meta.title}</AppText>
         <AppText style={[type.bodySm, { color: colors.onSurfaceVariant }]}>
-          {book.subtitle}
+          {meta.subtitle}
         </AppText>
       </View>
 
@@ -59,11 +61,11 @@ export function BookCard({ book, onPress }: Props) {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <AppText style={[type.labelSm, { color: colors.onSurfaceVariant }]}>PROGRESS</AppText>
           <AppText style={[type.labelSm, { color: colors.secondary }]}>
-            {Math.round(book.progress * 100)}%
+            {Math.round(progress * 100)}%
           </AppText>
         </View>
         <View style={{ flexDirection: 'row' }}>
-          <ProgressBar progress={book.progress} />
+          <ProgressBar progress={progress} />
         </View>
       </View>
     </PressableScale>
