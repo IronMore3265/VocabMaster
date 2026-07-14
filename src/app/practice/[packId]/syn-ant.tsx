@@ -1,21 +1,43 @@
-import { View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
-import { AppText } from '@/components/AppText';
+import { usePackWords, usePacks } from '@/api/queries';
+import { McqSession } from '@/components/McqSession';
 import { TopBar } from '@/components/TopBar';
+import { newSeed } from '@/lib/exercises/rng';
+import { makeSynAntItems } from '@/lib/exercises/synAnt';
 import { useTheme } from '@/lib/theme/ThemeProvider';
-import { spacing, type } from '@/lib/theme/tokens';
+import { spacing } from '@/lib/theme/tokens';
 
-// P1 stub — the synonym/antonym quiz is built in P4.
 export default function SynAntScreen() {
   const { colors } = useTheme();
+  const { packId } = useLocalSearchParams<{ packId: string }>();
+  const id = Number(packId);
+
+  const packsQuery = usePacks();
+  const wordsQuery = usePackWords(id);
+  const [seed] = useState(newSeed);
+
+  const pack = (packsQuery.data ?? []).find((p) => p.id === id);
+  const items = useMemo(
+    () => (wordsQuery.data ? makeSynAntItems(wordsQuery.data, seed) : []),
+    [wordsQuery.data, seed],
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <TopBar back />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.margin }}>
-        <AppText style={[type.headlineSm, { color: colors.onSurfaceVariant }]}>
-          Synonym/Antonym — coming in P4
-        </AppText>
-      </View>
+      {wordsQuery.isLoading || !pack ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+      ) : (
+        <McqSession
+          items={items}
+          packId={id}
+          exerciseType="syn_ant"
+          headerLabel={`SYNONYM / ANTONYM · PACK ${pack.pack_number}`}
+        />
+      )}
     </View>
   );
 }

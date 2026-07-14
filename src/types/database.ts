@@ -234,9 +234,11 @@ export type Database = {
       }
       words: {
         Row: {
+          antonyms: string[]
           book: number
           created_at: string
           definition: string | null
+          enriched_at: string | null
           example_sentences: string[] | null
           first_letter: string | null
           id: number
@@ -244,12 +246,15 @@ export type Database = {
           pack_id: number
           part_of_speech: string | null
           pronunciation: string | null
+          synonyms: string[]
           word: string
         }
         Insert: {
+          antonyms?: string[]
           book?: number
           created_at?: string
           definition?: string | null
+          enriched_at?: string | null
           example_sentences?: string[] | null
           first_letter?: string | null
           id?: number
@@ -257,12 +262,15 @@ export type Database = {
           pack_id: number
           part_of_speech?: string | null
           pronunciation?: string | null
+          synonyms?: string[]
           word: string
         }
         Update: {
+          antonyms?: string[]
           book?: number
           created_at?: string
           definition?: string | null
+          enriched_at?: string | null
           example_sentences?: string[] | null
           first_letter?: string | null
           id?: number
@@ -270,6 +278,7 @@ export type Database = {
           pack_id?: number
           part_of_speech?: string | null
           pronunciation?: string | null
+          synonyms?: string[]
           word?: string
         }
         Relationships: [
