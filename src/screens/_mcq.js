@@ -64,8 +64,9 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
         </div>
 
         ${answered && item.explanation ? `
-          <div class="bg-surface-container-low rounded-xl p-3.5 border-l-[3px] ${wasCorrect ? 'border-secondary-fixed-dim' : 'border-error'}">
-            <p class="text-body-sm text-on-surface-variant"><span class="font-medium">${esc(item.word)}:</span> ${esc(item.explanation)}</p>
+          <div class="bg-surface-container-low rounded-xl p-3.5 flex gap-2.5">
+            ${icon(wasCorrect ? 'check_circle' : 'cancel', `${wasCorrect ? 'text-secondary' : 'text-error'} text-[20px] shrink-0 mt-0.5`)}
+            <p class="text-body-sm text-on-surface-variant"><span class="font-medium text-on-surface">${esc(item.word)}:</span> ${esc(item.explanation)}</p>
           </div>` : ''}
       </div>
 

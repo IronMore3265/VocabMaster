@@ -13,7 +13,7 @@ export function applyTheme() {
   const dark = isDark();
   document.documentElement.classList.toggle('dark', dark);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#101415' : '#f7f9fb');
+  if (meta) meta.setAttribute('content', dark ? '#121212' : '#f8f9fa');
 }
 
 // Re-apply when the OS scheme flips while 'system' is selected.

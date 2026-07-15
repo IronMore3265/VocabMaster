@@ -2,7 +2,7 @@ import { supabase } from '../supabase.js';
 import { signOut } from '../auth.js';
 import { getSettings, setSettings } from '../store.js';
 import { deleteAccount } from '../api/account.js';
-import { checkForUpdate, openExternal } from '../lib/updates.js';
+import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
 import { CHANGELOG } from '../lib/changelog.js';
 import {
   bindThemeChooser, bindToggles, confirmSheet, esc, icon, showSheet,
@@ -146,18 +146,52 @@ export function mount(root) {
 }
 
 function showUpdateSheet(info) {
+  const inApp = canInstallInApp();
   const { el, close } = showSheet(`
     <div class="flex items-center gap-3 mb-2">
       ${icon('download', 'text-primary text-[26px]')}
       <h2 class="text-headline-sm font-headline text-on-surface">Update available</h2>
     </div>
     <p class="text-body-md text-on-surface-variant mb-1">A newer version <span class="font-medium text-on-surface">v${esc(info.latest)}</span> is available. You're on v${esc(info.current)}.</p>
-    <p class="text-body-sm text-on-surface-variant mb-5">Download the latest build to update.</p>
+    <p class="text-body-sm text-on-surface-variant mb-4">${inApp ? 'Download and install it right here.' : 'Download the latest build to update.'}</p>
+    <div data-progress class="hidden mb-4">
+      <div class="w-full rounded-full bg-progress-track overflow-hidden" style="height:8px">
+        <div data-bar class="h-full rounded-full bg-primary transition-[width] duration-200" style="width:0%"></div>
+      </div>
+      <p data-dl-status class="text-label-sm text-on-surface-variant mt-2"></p>
+    </div>
     <div class="flex gap-3">
       <button data-close class="flex-1 py-3 rounded-full border border-outline-variant text-on-surface text-body-sm">Later</button>
-      <button data-download class="flex-1 py-3 rounded-full bg-primary text-on-primary text-body-sm flex items-center justify-center gap-2">${icon('download', 'text-[18px]')} Download</button>
+      <button data-download class="flex-1 py-3 rounded-full bg-primary text-on-primary text-body-sm flex items-center justify-center gap-2">${icon('download', 'text-[18px]')} ${inApp ? 'Update now' : 'Download'}</button>
     </div>`);
-  el.querySelector('[data-download]').addEventListener('click', () => { openExternal(info.url); close(); });
+
+  const dl = el.querySelector('[data-download]');
+  dl.addEventListener('click', async () => {
+    // Non-Android (or plugin missing): open the download in the browser.
+    if (!inApp) { openExternal(info.url); close(); return; }
+
+    const progress = el.querySelector('[data-progress]');
+    const bar = el.querySelector('[data-bar]');
+    const status = el.querySelector('[data-dl-status]');
+    dl.disabled = true;
+    dl.classList.add('opacity-60');
+    progress.classList.remove('hidden');
+    status.textContent = 'Downloading…';
+    try {
+      await installUpdate(info.url, (p) => {
+        const pct = Math.round(Math.min(1, Math.max(0, p)) * 100);
+        bar.style.width = `${pct}%`;
+        status.textContent = pct < 100 ? `Downloading… ${pct}%` : 'Opening installer…';
+      });
+      bar.style.width = '100%';
+      status.textContent = 'Opening installer…';
+      setTimeout(close, 1200);
+    } catch {
+      // Fall back to a plain browser download if the native path fails.
+      status.textContent = 'Couldn’t install in-app — opening download…';
+      setTimeout(() => { openExternal(info.url); close(); }, 1000);
+    }
+  });
 }
 
 function showChangelogSheet() {

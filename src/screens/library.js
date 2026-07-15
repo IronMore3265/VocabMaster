@@ -2,9 +2,10 @@ import { fetchPackProgress } from '../api/queries.js';
 import { BOOKS_META } from '../lib/models.js';
 import { appHeader, bottomNav, esc, icon, progressBar, spinner } from '../ui.js';
 
+// Categorical pastels from design_edit.md §3 (Lavender Purple, Sky Blue).
 const GRADIENTS = {
-  1: ['#e1e0ff', '#c0c1ff'],
-  2: ['#6cf8bb', '#4edea3'],
+  1: ['#e1d8fa', '#b794f4'],
+  2: ['#a3ddf1', '#63b3ed'],
 };
 
 function bookCard(meta, progress) {
@@ -12,7 +13,7 @@ function bookCard(meta, progress) {
   return `
   <button data-nav="#/book/${meta.book}" class="text-left bg-surface rounded-3xl overflow-hidden shadow-card active:scale-[0.98] transition-transform">
     <div class="h-36 flex items-center justify-center" style="background:linear-gradient(135deg, ${from}, ${to})">
-      ${icon('menu_book', 'text-[56px]')}
+      ${icon('menu_book', 'text-[56px] text-[#1a202c]')}
     </div>
     <div class="p-4 flex flex-col gap-0.5">
       <h3 class="text-headline-sm font-headline text-on-surface">${esc(meta.title)}</h3>

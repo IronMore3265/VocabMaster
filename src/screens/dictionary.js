@@ -143,7 +143,7 @@ export function mount(root) {
     }
 
     if (!result && !loading && recent.length === 0 && bookmarks.length === 0) {
-      html += emptyState('dictionary', 'Look up any English word', 'Merriam-Webster definitions,\npronunciation audio and bookmarks.');
+      html += emptyState('dictionary', 'Look up any English word', 'Definitions, pronunciation audio\nand bookmarks.');
     }
 
     content.innerHTML = html;

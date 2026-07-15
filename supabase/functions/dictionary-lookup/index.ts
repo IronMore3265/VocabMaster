@@ -1,7 +1,11 @@
-// Dictionary proxy: Merriam-Webster Collegiate first, dictionaryapi.dev to fill
-// missing IPA/audio, MW Thesaurus for synonyms/antonyms, 30-day shared cache in
-// public.dictionary_cache. Keys come from env or Supabase Vault (get_secret RPC,
-// service-role only). verify_jwt is on, so only signed-in users can call this.
+// Dictionary proxy: the Free Dictionary API (dictionaryapi.dev) is the PRIMARY
+// source for definitions, IPA and synonyms/antonyms — it's fast and unmetered,
+// which keeps our Merriam-Webster quota from draining. MW is only called to fill
+// gaps (US pronunciation audio, and as a full fallback / "did you mean" source
+// when the free API has no entry). MW Thesaurus backfills synonyms/antonyms.
+// Results share a 30-day cache in public.dictionary_cache. Keys come from env or
+// Supabase Vault (get_secret RPC, service-role only). verify_jwt is on, so only
+// signed-in users can call this.
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
@@ -88,16 +92,62 @@ function normalizeMw(word: string, raw: any[]): DictionaryPayload {
   return { word, entries };
 }
 
+/** Build the payload straight from the Free Dictionary API (primary source). */
 // deno-lint-ignore no-explicit-any
-function supplementFromFreeDict(payload: DictionaryPayload, raw: any[]): void {
+function normalizeFreeDict(word: string, raw: any[]): DictionaryPayload {
   const phonetics = raw?.[0]?.phonetics ?? [];
+  const ipa =
+    raw?.[0]?.phonetic ??
+    // deno-lint-ignore no-explicit-any
+    phonetics.find((p: any) => p?.text)?.text ??
+    null;
   // deno-lint-ignore no-explicit-any
-  const ipa = phonetics.find((p: any) => p?.text)?.text ?? null;
-  // deno-lint-ignore no-explicit-any
-  const audio = phonetics.find((p: any) => p?.audio)?.audio ?? null;
+  const audio = phonetics.find((p: any) => p?.audio)?.audio || null;
+
+  const entries: DictionaryEntry[] = [];
+  const synonyms = new Set<string>();
+  const antonyms = new Set<string>();
+
+  for (const fe of raw) {
+    for (const meaning of fe?.meanings ?? []) {
+      (meaning?.synonyms ?? []).forEach((s: string) => s && synonyms.add(s));
+      (meaning?.antonyms ?? []).forEach((s: string) => s && antonyms.add(s));
+      const definitions = (meaning?.definitions ?? [])
+        // deno-lint-ignore no-explicit-any
+        .map((d: any) => {
+          (d?.synonyms ?? []).forEach((s: string) => s && synonyms.add(s));
+          (d?.antonyms ?? []).forEach((s: string) => s && antonyms.add(s));
+          return d?.definition;
+        })
+        .filter(Boolean)
+        .slice(0, 4);
+      if (definitions.length === 0) continue;
+      entries.push({
+        headword: fe?.word ?? word,
+        pos: meaning?.partOfSpeech ?? null,
+        pronunciation: null,
+        ipa,
+        audioUrl: audio,
+        definitions,
+      });
+      if (entries.length === 4) break;
+    }
+    if (entries.length === 4) break;
+  }
+
+  const payload: DictionaryPayload = { word, entries };
+  if (synonyms.size) payload.synonyms = [...synonyms].slice(0, 8);
+  if (antonyms.size) payload.antonyms = [...antonyms].slice(0, 8);
+  return payload;
+}
+
+/** Fill missing US audio / pronunciation on free-dict entries from MW data. */
+function supplementAudioFromMw(payload: DictionaryPayload, mw: DictionaryPayload): void {
+  const audioUrl = (mw.entries ?? []).find((e) => e.audioUrl)?.audioUrl ?? null;
+  const pronunciation = (mw.entries ?? []).find((e) => e.pronunciation)?.pronunciation ?? null;
   for (const entry of payload.entries ?? []) {
-    entry.ipa = entry.ipa ?? ipa;
-    entry.audioUrl = entry.audioUrl ?? audio;
+    if (!entry.audioUrl && audioUrl) entry.audioUrl = audioUrl;
+    if (!entry.pronunciation && pronunciation) entry.pronunciation = pronunciation;
   }
 }
 
@@ -149,57 +199,58 @@ Deno.serve(async (req) => {
     return json(cached.payload);
   }
 
-  const mwKey = await getSecret(admin, 'MW_API_KEY');
-  if (!mwKey) return json({ error: 'missing_mw_api_key' }, 500);
-
-  const mwRes = await fetch(
-    `https://dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(word)}?key=${mwKey}`,
-  );
-  if (!mwRes.ok) return json({ error: 'merriam_webster_unavailable' }, 502);
-  const payload = normalizeMw(word, await mwRes.json());
-
-  // Suggestions ("did you mean") are not cached — they aren't a real entry.
-  if (payload.suggestions) return json(payload);
-
-  const thesaurusKey = await getSecret(admin, 'MW_THESAURUS_KEY');
-  if (thesaurusKey) {
-    const { synonyms, antonyms } = await fetchThesaurus(word, thesaurusKey);
-    if (synonyms.length) payload.synonyms = synonyms;
-    if (antonyms.length) payload.antonyms = antonyms;
+  // 1. Free Dictionary API first — the primary source for definitions & IPA.
+  let payload: DictionaryPayload = { word, entries: [] };
+  try {
+    const freeRes = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+    );
+    if (freeRes.ok) {
+      const free = await freeRes.json();
+      if (Array.isArray(free) && free.length) payload = normalizeFreeDict(word, free);
+    }
+  } catch {
+    // Free dictionary is best-effort; fall through to Merriam-Webster.
   }
 
-  const needsSupplement = (payload.entries ?? []).some((e) => !e.audioUrl || !e.ipa);
-  if (needsSupplement || (payload.entries ?? []).length === 0) {
+  const hasEntries = (payload.entries ?? []).length > 0;
+  const needsAudio = (payload.entries ?? []).some((e) => !e.audioUrl);
+
+  // 2. Merriam-Webster only when needed: to supply audio, or as a full fallback
+  //    (and "did you mean" suggestions) when the free API had no entry.
+  const mwKey = await getSecret(admin, 'MW_API_KEY');
+  if (mwKey && (!hasEntries || needsAudio)) {
     try {
-      const freeRes = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+      const mwRes = await fetch(
+        `https://dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(word)}?key=${mwKey}`,
       );
-      if (freeRes.ok) {
-        const free = await freeRes.json();
-        if ((payload.entries ?? []).length === 0 && Array.isArray(free)) {
-          // MW had nothing usable; build entries from the free dictionary.
-          payload.entries = free.slice(0, 1).flatMap(
-            // deno-lint-ignore no-explicit-any
-            (fe: any) =>
-              // deno-lint-ignore no-explicit-any
-              (fe?.meanings ?? []).slice(0, 3).map((meaning: any) => ({
-                headword: fe?.word ?? word,
-                pos: meaning?.partOfSpeech ?? null,
-                pronunciation: null,
-                ipa: fe?.phonetic ?? null,
-                audioUrl: null,
-                definitions: (meaning?.definitions ?? [])
-                  // deno-lint-ignore no-explicit-any
-                  .map((d: any) => d?.definition)
-                  .filter(Boolean)
-                  .slice(0, 3),
-              })),
-          );
+      if (mwRes.ok) {
+        const mw = normalizeMw(word, await mwRes.json());
+        if (mw.suggestions) {
+          // Only meaningful when we have nothing better to show.
+          if (!hasEntries) return json(mw);
+        } else if (!hasEntries) {
+          payload = mw; // free API had nothing usable → use MW entries wholesale
+        } else {
+          supplementAudioFromMw(payload, mw); // fill in US audio / pronunciation
         }
-        supplementFromFreeDict(payload, Array.isArray(free) ? free : []);
+      } else if (!hasEntries) {
+        return json({ error: 'merriam_webster_unavailable' }, 502);
       }
     } catch {
-      // Supplement is best-effort; MW data alone is fine.
+      if (!hasEntries) return json({ error: 'merriam_webster_unavailable' }, 502);
+    }
+  }
+
+  if ((payload.entries ?? []).length === 0) return json({ word, entries: [] });
+
+  // 3. Synonyms/antonyms: free-dict lists win; MW Thesaurus backfills gaps.
+  if (!payload.synonyms?.length || !payload.antonyms?.length) {
+    const thesaurusKey = await getSecret(admin, 'MW_THESAURUS_KEY');
+    if (thesaurusKey) {
+      const { synonyms, antonyms } = await fetchThesaurus(word, thesaurusKey);
+      if (!payload.synonyms?.length && synonyms.length) payload.synonyms = synonyms;
+      if (!payload.antonyms?.length && antonyms.length) payload.antonyms = antonyms;
     }
   }
 

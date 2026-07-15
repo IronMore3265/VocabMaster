@@ -2,6 +2,18 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '0.3.0',
+    date: '2026-07-15',
+    notes: [
+      'Refreshed the whole look with a friendlier, higher-contrast colour system that is much easier to read in dark mode.',
+      'Flashcards now show synonyms, antonyms and up to three example sentences on the back.',
+      'Fixed matching practice so tapping the wrong meaning clearly flashes red instead of doing nothing.',
+      'Sped up dictionary lookups and made them more reliable by using the free dictionary first, with Merriam-Webster for audio.',
+      'Updates now download and install right inside the app instead of sending you to a web page.',
+      'Cleaned up notes and example boxes with a softer, label-based style.',
+    ],
+  },
+  {
     version: '0.2.2',
     date: '2026-07-15',
     notes: [

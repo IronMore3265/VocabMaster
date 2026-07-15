@@ -8,8 +8,9 @@ dist/
 .env
 .env*.local
 
-# Capacitor generated native project (regenerate with `npx cap add android`)
-/android
+# The Capacitor Android project IS tracked so release builds (versionName, native
+# plugins, manifest) are reproducible. Build artifacts, keystores and the copied
+# web assets are excluded by android/.gitignore.
 
 # release signing keystore (keep a private backup!)
 *.keystore

@@ -97,18 +97,21 @@ export function mount(root, packId) {
       const isMatched = matched.has(wid);
       const isSelected = selectedWord === wid;
       btn.className = `border-[1.5px] rounded-xl px-3 py-3.5 text-left transition-colors ${
-        isMatched ? 'border-secondary bg-secondary-fixed opacity-55'
+        isMatched ? 'border-secondary bg-secondary-container opacity-60'
         : isSelected ? 'border-primary bg-primary-fixed' : 'border-outline-variant bg-surface'
       }`;
-      btn.querySelector('span').className = `text-body-md font-medium ${isSelected ? 'text-on-primary-fixed' : 'text-on-surface'}`;
+      btn.querySelector('span').className = `text-body-md font-medium ${
+        isMatched ? 'text-on-secondary-container' : isSelected ? 'text-on-primary-fixed' : 'text-on-surface'
+      }`;
       btn.disabled = isMatched;
     });
     body.querySelectorAll('[data-def]').forEach((btn) => {
       const wid = Number(btn.getAttribute('data-def'));
       const isMatched = matched.has(wid);
-      btn.className = `rounded-xl p-3 text-left shadow-card transition-colors ${
-        isMatched ? 'bg-secondary-fixed opacity-55' : 'bg-surface'
+      btn.className = `rounded-xl p-3 text-left shadow-card border-[1.5px] transition-colors ${
+        isMatched ? 'bg-secondary-container border-secondary opacity-60' : 'bg-surface border-transparent'
       }`;
+      btn.querySelector('span').className = `text-body-sm ${isMatched ? 'text-on-secondary-container' : 'text-on-surface-variant'}`;
       btn.disabled = isMatched || selectedWord === null;
     });
   }
@@ -144,10 +147,14 @@ export function mount(root, packId) {
         }, 350);
       }
     } else {
+      // Wrong pairing: flash the tapped meaning red, then restore. Setting the
+      // full className (not just adding one) avoids the bg-surface/bg-error
+      // collision that used to swallow the feedback entirely.
       haptic.error();
       missed.add(selectedWord);
-      btn.classList.add('bg-error-container');
-      setTimeout(() => btn.classList.remove('bg-error-container'), 450);
+      btn.className = 'rounded-xl p-3 text-left shadow-card border-[1.5px] border-error bg-error-container transition-colors';
+      btn.querySelector('span').className = 'text-body-sm text-on-error-container';
+      setTimeout(() => { if (!matched.has(defWordId)) refreshStyles(); }, 500);
     }
   }
 }

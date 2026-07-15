@@ -1,7 +1,33 @@
-// In-app update check against GitHub Releases. The app has no auto-updater, so
-// this compares the built version to the latest published release and points
-// the user at the APK (or the release page) to install the new build.
+// In-app update check against GitHub Releases. Compares the built version to the
+// latest published release; on Android it can download the APK and launch the
+// system installer in-app (via the native ApkInstaller plugin), otherwise it
+// falls back to opening the download in the browser.
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
 const GITHUB_REPO = 'IronMore3265/VocabMaster';
+
+const ApkInstaller = registerPlugin('ApkInstaller');
+
+/** True when the native installer is available (i.e. running inside the APK). */
+export function canInstallInApp() {
+  return Capacitor.isNativePlatform();
+}
+
+/**
+ * Downloads `url` and launches the Android package installer, reporting download
+ * progress (0..1) through `onProgress`. Only call when canInstallInApp() is true.
+ */
+export async function installUpdate(url, onProgress) {
+  let handle = null;
+  if (onProgress) {
+    handle = await ApkInstaller.addListener('downloadProgress', (e) => onProgress(e?.progress ?? 0));
+  }
+  try {
+    await ApkInstaller.installApk({ url });
+  } finally {
+    try { await handle?.remove?.(); } catch { /* listener already gone */ }
+  }
+}
 
 /** Semver-ish compare of dotted numeric versions. 1 if a>b, -1 if a<b, 0 equal. */
 export function compareVersions(a, b) {

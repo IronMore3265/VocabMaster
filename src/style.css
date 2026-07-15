@@ -29,30 +29,35 @@
   --font-headline: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Google Sans Flex', ui-sans-serif, system-ui, sans-serif;
 
-  --color-background: #f7f9fb;
+  /* Neutrals (design_edit.md §3 Core Neutrals) */
+  --color-background: #f8f9fa;
   --color-surface: #ffffff;
   --color-surface-container-low: #f2f4f6;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e6e8ea;
-  --color-on-surface: #191c1e;
-  --color-on-surface-variant: #464554;
-  --color-outline: #767586;
-  --color-outline-variant: #c7c4d7;
-  --color-primary: #4648d4;
+  --color-surface-container: #edf0f2;
+  --color-surface-container-high: #e6e9ec;
+  --color-on-surface: #1a202c;
+  --color-on-surface-variant: #64748b;
+  --color-outline: #94a3b8;
+  --color-outline-variant: #e2e8f0;
+  /* Primary = friendly green CTA (design_edit.md §3 Action Colors) */
+  --color-primary: #16a34a;
   --color-on-primary: #ffffff;
-  --color-primary-fixed: #e1e0ff;
-  --color-primary-fixed-dim: #c0c1ff;
-  --color-on-primary-fixed: #07006c;
-  --color-secondary: #006c49;
+  --color-primary-fixed: #dcfce7;
+  --color-primary-fixed-dim: #bbf7d0;
+  --color-on-primary-fixed: #14532d;
+  /* Secondary shares the success-green family */
+  --color-secondary: #15803d;
   --color-on-secondary: #ffffff;
-  --color-secondary-fixed: #6ffbbe;
-  --color-secondary-fixed-dim: #4edea3;
-  --color-progress-track: #e0e3e5;
-  --color-error: #ba1a1a;
+  --color-secondary-fixed: #dcfce7;
+  --color-secondary-fixed-dim: #86efac;
+  --color-secondary-container: #d4f4de;
+  --color-on-secondary-container: #0f5132;
+  --color-progress-track: #e2e8f0;
+  --color-error: #dc2626;
   --color-on-error: #ffffff;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
-  --color-ink: #1e293b;
+  --color-error-container: #fee2e2;
+  --color-on-error-container: #991b1b;
+  --color-ink: #1a202c;
 
   --text-headline-lg: 24px;
   --text-headline-lg--line-height: 32px;
@@ -88,29 +93,33 @@
 
 /* ---------- Dark palette (from darkColors in tokens.ts) ---------- */
 .dark {
-  --color-background: #101415;
-  --color-surface: #1d2022;
-  --color-surface-container-low: #191c1e;
-  --color-surface-container: #272a2c;
-  --color-surface-container-high: #323537;
-  --color-on-surface: #e0e3e5;
-  --color-on-surface-variant: #c4c7c7;
-  --color-outline: #8e9192;
-  --color-outline-variant: #444748;
-  --color-primary: #c0c1ff;
-  --color-on-primary: #07006c;
-  --color-primary-fixed: #2f2ebe;
-  --color-primary-fixed-dim: #c0c1ff;
-  --color-on-primary-fixed: #e1e0ff;
-  --color-secondary: #4de082;
-  --color-on-secondary: #003919;
-  --color-secondary-fixed: #6dfe9c;
-  --color-secondary-fixed-dim: #4de082;
-  --color-progress-track: #323537;
-  --color-error: #ffb4ab;
-  --color-on-error: #690005;
-  --color-error-container: #93000a;
-  --color-on-error-container: #ffdad6;
+  /* Neutrals (design_edit.md §3 — dark column) */
+  --color-background: #121212;
+  --color-surface: #1e1e1e;
+  --color-surface-container-low: #191919;
+  --color-surface-container: #262626;
+  --color-surface-container-high: #303030;
+  --color-on-surface: #f7fafc;
+  --color-on-surface-variant: #a0aec0;
+  --color-outline: #8f9bab;
+  --color-outline-variant: #2d3748;
+  /* Green brightens in dark so it stays legible as both fill and text */
+  --color-primary: #4ade80;
+  --color-on-primary: #052e16;
+  --color-primary-fixed: #14532d;
+  --color-primary-fixed-dim: #22c55e;
+  --color-on-primary-fixed: #bbf7d0;
+  --color-secondary: #4ade80;
+  --color-on-secondary: #052e16;
+  --color-secondary-fixed: #14532d;
+  --color-secondary-fixed-dim: #4ade80;
+  --color-secondary-container: #0f3d24;
+  --color-on-secondary-container: #86efac;
+  --color-progress-track: #2d3748;
+  --color-error: #fca5a5;
+  --color-on-error: #450a0a;
+  --color-error-container: #7f1d1d;
+  --color-on-error-container: #fecaca;
   --color-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 .dark {
@@ -171,15 +180,17 @@ input, textarea {
 
 /* ---------- Exercise tiles — pastel fill in light, pastel ink in dark ---------- */
 /* (matches exercisePastels / exercisePastelText: dark moves the hue to text) */
+/* Categorical accents (design_edit.md §3 / §6.2): solid pastel + dark ink in
+   light; surface fill with a 2px pastel border and pastel ink in dark. */
 .tile { color: var(--color-ink); }
-.tile-flashcards { background: #b5e4ca; }
-.tile-matching { background: #fde293; }
-.tile-fillBlank { background: #aecbfa; }
-.tile-synAnt { background: #f6c4ad; }
-.dark .tile-flashcards { background: #1a3828; color: #b5e4ca; border: 1px solid var(--color-outline-variant); }
-.dark .tile-matching { background: #382c10; color: #fde293; border: 1px solid var(--color-outline-variant); }
-.dark .tile-fillBlank { background: #172740; color: #aecbfa; border: 1px solid var(--color-outline-variant); }
-.dark .tile-synAnt { background: #3d2319; color: #f6c4ad; border: 1px solid var(--color-outline-variant); }
+.tile-flashcards { background: #8de5b8; } /* Mint Green */
+.tile-matching { background: #fde49e; }   /* Sunny Yellow */
+.tile-fillBlank { background: #a3ddf1; }   /* Sky Blue */
+.tile-synAnt { background: #fbd0b9; }      /* Peach Orange */
+.dark .tile-flashcards { background: var(--color-surface); color: #68d391; border: 2px solid #68d391; }
+.dark .tile-matching { background: var(--color-surface); color: #f6e05e; border: 2px solid #f6e05e; }
+.dark .tile-fillBlank { background: var(--color-surface); color: #63b3ed; border: 2px solid #63b3ed; }
+.dark .tile-synAnt { background: var(--color-surface); color: #f6ad55; border: 2px solid #f6ad55; }
 
 /* ---------- Flip card (3D rotateY) ---------- */
 .flip-scene { perspective: 1000px; }

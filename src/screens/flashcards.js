@@ -51,9 +51,20 @@ export function mount(root, packId) {
     if (url) playAudio(url);
   };
 
+  function pillRow(label, items) {
+    if (!items?.length) return '';
+    return `
+    <div class="flex flex-col gap-1.5">
+      <span class="text-label-sm uppercase text-on-surface-variant">${label}</span>
+      <div class="flex flex-wrap gap-1.5">
+        ${items.map((w) => `<span class="rounded-full bg-surface-container text-on-surface px-3 py-1 text-body-sm">${esc(w)}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
   function drawWord() {
     const word = words[index];
-    const example = word.example_sentences?.[0];
+    const examples = (word.example_sentences ?? []).slice(0, 3);
     body.innerHTML = `
     <div class="flex flex-col gap-2 mt-1">
       <div class="flex justify-between items-center">
@@ -82,8 +93,16 @@ export function mount(root, packId) {
           <div class="flex flex-col gap-3.5">
             <span class="self-start bg-primary-fixed text-on-primary-fixed rounded-full px-3 py-1 text-label-sm uppercase">${esc(posLabel(word.part_of_speech))}</span>
             <p class="text-body-lg text-on-surface">${esc(word.definition ?? '')}</p>
-            ${example ? `<div class="bg-surface-container-low rounded-xl p-3.5 border-l-[3px] border-secondary-fixed-dim"><p class="text-body-md text-on-surface-variant italic">${esc(example)}</p></div>` : ''}
-            ${word.notes ? `<p class="text-body-sm text-on-surface-variant">${esc(word.notes)}</p>` : ''}
+            ${examples.length ? `
+              <div class="flex flex-col gap-1.5">
+                <span class="text-label-sm uppercase text-on-surface-variant">Example${examples.length > 1 ? 's' : ''}</span>
+                <div class="flex flex-col gap-2">
+                  ${examples.map((ex) => `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-md text-on-surface-variant italic">${esc(ex)}</p></div>`).join('')}
+                </div>
+              </div>` : ''}
+            ${pillRow('Synonyms', word.synonyms)}
+            ${pillRow('Antonyms', word.antonyms)}
+            ${word.notes ? `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-sm text-on-surface-variant">${esc(word.notes)}</p></div>` : ''}
           </div>
         </div>
       </div>

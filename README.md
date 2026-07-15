@@ -3,8 +3,8 @@
 A clean, academic-focused IELTS vocabulary app built on the Word Smart 1 & 2 word lists.
 
 - **Stack:** Vite + Tailwind CSS v4 + vanilla JavaScript, wrapped with **Capacitor** for Android. Backed by **Supabase** (Postgres, Auth, Edge Functions).
-- **Design:** "Academic Clarity" system — soft neutral surfaces, indigo/emerald accents, pastel exercise tiles, Plus Jakarta Sans / Inter / JetBrains Mono (self-hosted).
-- **Features:** onboarding tour, book → word-pack → practice flow (flashcards, matching, fill-in-the-blank, synonym/antonym), dictionary search (Merriam-Webster), progress analytics, an AI coach (Gemini) driven by your wrong-answer history, and light/dark theming.
+- **Design:** friendly, high-contrast system — soft neutral surfaces, a green primary action, pastel category/exercise accents, Plus Jakarta Sans / Inter (self-hosted), tuned for readability in both light and dark modes.
+- **Features:** onboarding tour, book → word-pack → practice flow (flashcards, matching, fill-in-the-blank, synonym/antonym), dictionary search (Free Dictionary API with Merriam-Webster audio), progress analytics, an AI coach (Gemini) driven by your wrong-answer history, in-app updates, and light/dark theming.
 
 ## Development
 
