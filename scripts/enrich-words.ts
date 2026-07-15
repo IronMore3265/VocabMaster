@@ -22,11 +22,13 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const BATCH_SIZE = 40;
 
+// Bulk enrichment stays OFF the gemini-3.5-flash quota reserved for the live
+// suggest-exercise task. These two current-gen models generate on the AI Studio
+// key and sit in their own quota buckets (the 2.5 series 404s for new keys).
 const MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL,
-  'gemini-3.5-flash',
   'gemini-3-flash-preview',
-  'gemini-2.5-flash',
+  'gemini-flash-lite-latest',
 ].filter((m): m is string => Boolean(m));
 
 if (!SERVICE_KEY || !GEMINI_API_KEY) {

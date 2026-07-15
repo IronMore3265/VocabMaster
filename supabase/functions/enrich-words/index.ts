@@ -14,12 +14,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const BATCH_SIZE = 40;
 const TIME_BUDGET_MS = 80_000;
 
-const MODEL_CANDIDATES = [
-  Deno.env.get('GEMINI_MODEL'),
-  'gemini-3.5-flash',
-  'gemini-3-flash-preview',
-  'gemini-2.5-flash',
-].filter((m): m is string => Boolean(m));
+// Enrichment is a one-time bulk job, kept OFF the gemini-3.5-flash quota that
+// the live suggest-exercise task uses. These two current-gen models generate
+// on this key and sit in their own quota buckets; the lite fallback carries on
+// when the preview model's quota is spent. Overridable via body.models.
+const DEFAULT_MODELS = ['gemini-3-flash-preview', 'gemini-flash-lite-latest'];
 
 interface WordInput {
   id: number;
@@ -93,14 +92,13 @@ Words:
 ${list}`;
 }
 
-async function resolveModel(apiKey: string): Promise<string> {
-  for (const model of MODEL_CANDIDATES) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
-      headers: { 'x-goog-api-key': apiKey },
-    });
-    if (res.ok) return model;
+class GeminiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
   }
-  throw new Error(`No Gemini model available among: ${MODEL_CANDIDATES.join(', ')}`);
 }
 
 async function callGemini(model: string, apiKey: string, prompt: string): Promise<Enrichment[]> {
@@ -120,10 +118,10 @@ async function callGemini(model: string, apiKey: string, prompt: string): Promis
       }),
     },
   );
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new GeminiError(res.status, `Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini returned no text');
+  if (!text) throw new GeminiError(502, 'Gemini returned no text');
   return JSON.parse(text) as Enrichment[];
 }
 
@@ -140,8 +138,14 @@ Deno.serve(async (req) => {
     ((await admin.rpc('get_secret', { secret_name: 'GEMINI_API_KEY' })).data as string | null);
   if (!apiKey) return json({ error: 'missing_gemini_api_key' }, 500);
 
-  const model = await resolveModel(apiKey);
+  const body = await req.json().catch(() => ({}));
+  const models: string[] =
+    Array.isArray(body?.models) && body.models.length ? body.models : DEFAULT_MODELS;
+
   const deadline = Date.now() + TIME_BUDGET_MS;
+  // Models whose quota is spent for THIS invocation; skipped for later batches.
+  const exhausted = new Set<string>();
+  const usedModels = new Set<string>();
 
   let processed = 0;
   const failures: number[] = [];
@@ -157,16 +161,42 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     if (!words || words.length === 0) break;
 
-    let enrichments: Enrichment[];
-    try {
-      enrichments = await callGemini(model, apiKey, buildPrompt(words as WordInput[]));
-    } catch (err) {
+    // Try each model in order; on quota (429) or overload (503) skip that model
+    // for the rest of this invocation and fall through to the next.
+    let enrichments: Enrichment[] | null = null;
+    let lastQuotaErr = '';
+    for (const model of models) {
+      if (exhausted.has(model)) continue;
+      try {
+        enrichments = await callGemini(model, apiKey, buildPrompt(words as WordInput[]));
+        usedModels.add(model);
+        break;
+      } catch (err) {
+        if (err instanceof GeminiError && (err.status === 429 || err.status === 503)) {
+          exhausted.add(model);
+          lastQuotaErr = err.message;
+          continue;
+        }
+        // Transient/parse error: report so the caller retries this batch.
+        return json({
+          processed,
+          batches,
+          failures,
+          models: [...usedModels],
+          stalled: processed === 0,
+          error: `gemini_failed: ${String(err).slice(0, 200)}`,
+        });
+      }
+    }
+    if (!enrichments) {
       return json({
         processed,
         batches,
         failures,
+        models: [...usedModels],
+        exhausted: [...exhausted],
         stalled: processed === 0,
-        error: `gemini_failed: ${String(err).slice(0, 200)}`,
+        error: `all_models_exhausted: ${lastQuotaErr.slice(0, 160)}`,
       });
     }
 
@@ -205,5 +235,12 @@ Deno.serve(async (req) => {
     .select('id', { count: 'exact', head: true })
     .is('enriched_at', null);
 
-  return json({ model, processed, batches, failures, remaining: remaining ?? -1 });
+  return json({
+    models: [...usedModels],
+    exhausted: [...exhausted],
+    processed,
+    batches,
+    failures,
+    remaining: remaining ?? -1,
+  });
 });
