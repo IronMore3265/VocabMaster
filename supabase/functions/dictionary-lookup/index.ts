@@ -1,9 +1,21 @@
 // Dictionary proxy: Merriam-Webster Collegiate first, dictionaryapi.dev to fill
-// missing IPA/audio, 30-day shared cache in public.dictionary_cache. Keys stay
-// server-side (secrets: MW_API_KEY). verify_jwt is on, so only signed-in users
-// can call this.
+// missing IPA/audio, MW Thesaurus for synonyms/antonyms, 30-day shared cache in
+// public.dictionary_cache. Keys come from env or Supabase Vault (get_secret RPC,
+// service-role only). verify_jwt is on, so only signed-in users can call this.
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+
+const secretCache = new Map<string, string | null>();
+
+async function getSecret(admin: SupabaseClient, name: string): Promise<string | null> {
+  const fromEnv = Deno.env.get(name);
+  if (fromEnv) return fromEnv;
+  if (secretCache.has(name)) return secretCache.get(name)!;
+  const { data } = await admin.rpc('get_secret', { secret_name: name });
+  const value = (data as string | null) ?? null;
+  secretCache.set(name, value);
+  return value;
+}
 
 interface DictionaryEntry {
   headword: string;
@@ -18,6 +30,8 @@ interface DictionaryPayload {
   word: string;
   entries?: DictionaryEntry[];
   suggestions?: string[];
+  synonyms?: string[];
+  antonyms?: string[];
 }
 
 const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -78,6 +92,30 @@ function supplementFromFreeDict(payload: DictionaryPayload, raw: any[]): void {
   }
 }
 
+/** MW Thesaurus: first sense's synonym/antonym lists for the exact headword. */
+async function fetchThesaurus(
+  word: string,
+  key: string,
+): Promise<{ synonyms: string[]; antonyms: string[] }> {
+  const empty = { synonyms: [], antonyms: [] };
+  try {
+    const res = await fetch(
+      `https://dictionaryapi.com/api/v3/references/thesaurus/json/${encodeURIComponent(word)}?key=${key}`,
+    );
+    if (!res.ok) return empty;
+    const raw = await res.json();
+    if (!Array.isArray(raw) || raw.length === 0 || typeof raw[0] === 'string') return empty;
+    // deno-lint-ignore no-explicit-any
+    const entry = raw.find((e: any) => e?.meta?.id?.split(':')[0] === word) ?? raw[0];
+    return {
+      synonyms: (entry?.meta?.syns?.[0] ?? []).slice(0, 8),
+      antonyms: (entry?.meta?.ants?.[0] ?? []).slice(0, 8),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
@@ -101,7 +139,7 @@ Deno.serve(async (req) => {
     return json(cached.payload);
   }
 
-  const mwKey = Deno.env.get('MW_API_KEY');
+  const mwKey = await getSecret(admin, 'MW_API_KEY');
   if (!mwKey) return json({ error: 'missing_mw_api_key' }, 500);
 
   const mwRes = await fetch(
@@ -112,6 +150,13 @@ Deno.serve(async (req) => {
 
   // Suggestions ("did you mean") are not cached — they aren't a real entry.
   if (payload.suggestions) return json(payload);
+
+  const thesaurusKey = await getSecret(admin, 'MW_THESAURUS_KEY');
+  if (thesaurusKey) {
+    const { synonyms, antonyms } = await fetchThesaurus(word, thesaurusKey);
+    if (synonyms.length) payload.synonyms = synonyms;
+    if (antonyms.length) payload.antonyms = antonyms;
+  }
 
   const needsSupplement = (payload.entries ?? []).some((e) => !e.audioUrl || !e.ipa);
   if (needsSupplement || (payload.entries ?? []).length === 0) {

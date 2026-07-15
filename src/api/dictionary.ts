@@ -17,20 +17,22 @@ export interface DictionaryPayload {
   word: string;
   entries?: DictionaryEntry[];
   suggestions?: string[];
+  synonyms?: string[];
+  antonyms?: string[];
 }
 
-/** Calls the dictionary-lookup edge function (MW + free-dictionary fallback). */
-export function useDictionaryLookup() {
-  return useMutation({
-    mutationFn: async (word: string): Promise<DictionaryPayload> => {
-      const { data, error } = await supabase.functions.invoke('dictionary-lookup', {
-        body: { word },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(String(data.error));
-      return data as DictionaryPayload;
-    },
+/** Raw call to the dictionary-lookup edge function (MW + free-dictionary fallback). */
+export async function lookupWord(word: string): Promise<DictionaryPayload> {
+  const { data, error } = await supabase.functions.invoke('dictionary-lookup', {
+    body: { word },
   });
+  if (error) throw error;
+  if (data?.error) throw new Error(String(data.error));
+  return data as DictionaryPayload;
+}
+
+export function useDictionaryLookup() {
+  return useMutation({ mutationFn: lookupWord });
 }
 
 const RECENT_KEY = 'dictionary.recent';

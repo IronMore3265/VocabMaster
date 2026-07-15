@@ -67,9 +67,9 @@ const RESPONSE_SCHEMA = {
 
 async function resolveModel(): Promise<string> {
   for (const model of MODEL_CANDIDATES) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}?key=${GEMINI_API_KEY}`,
-    );
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
+      headers: { 'x-goog-api-key': GEMINI_API_KEY! },
+    });
     if (res.ok) return model;
   }
   throw new Error(`None of the candidate models are available: ${MODEL_CANDIDATES.join(', ')}`);
@@ -101,10 +101,10 @@ ${list}`;
 
 async function callGemini(model: string, prompt: string): Promise<Enrichment[]> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY! },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {

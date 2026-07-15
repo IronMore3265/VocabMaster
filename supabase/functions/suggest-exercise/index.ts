@@ -3,9 +3,25 @@
 // biased toward the exercise types they miss most, validates the JSON, caches
 // it in ai_suggestions, and returns { suggestionId, payload }.
 //
-// Secrets: GEMINI_API_KEY (required), GEMINI_MODEL (optional override).
+// GEMINI_API_KEY comes from env or Supabase Vault (get_secret RPC, service-role
+// only); GEMINI_MODEL optionally overrides the model.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+
+let cachedGeminiKey: string | null = null;
+
+async function getGeminiKey(): Promise<string | null> {
+  const fromEnv = Deno.env.get('GEMINI_API_KEY');
+  if (fromEnv) return fromEnv;
+  if (cachedGeminiKey) return cachedGeminiKey;
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+  const { data } = await admin.rpc('get_secret', { secret_name: 'GEMINI_API_KEY' });
+  cachedGeminiKey = (data as string | null) ?? null;
+  return cachedGeminiKey;
+}
 
 interface Option {
   id: string;
@@ -80,9 +96,9 @@ function json(body: unknown, status = 200): Response {
 
 async function resolveModel(apiKey: string): Promise<string> {
   for (const model of MODEL_CANDIDATES) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}?key=${apiKey}`,
-    );
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
+      headers: { 'x-goog-api-key': apiKey },
+    });
     if (res.ok) return model;
   }
   throw new Error(`No Gemini model available among: ${MODEL_CANDIDATES.join(', ')}`);
@@ -123,10 +139,10 @@ ${wordList}`;
 
 async function callGemini(model: string, apiKey: string, prompt: string): Promise<GeneratedExercise> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
@@ -170,7 +186,7 @@ function validate(
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  const geminiKey = await getGeminiKey();
   if (!geminiKey) return json({ error: 'missing_gemini_api_key' }, 500);
 
   // Client bound to the caller's JWT: all reads/writes below go through RLS.

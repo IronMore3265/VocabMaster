@@ -1,9 +1,10 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
+import { lookupWord } from '@/api/dictionary';
 import { usePackWords, usePacks, useRecordAttempt } from '@/api/queries';
 import { AppText } from '@/components/AppText';
 import { FlipCard } from '@/components/FlipCard';
@@ -29,6 +30,27 @@ export default function FlashcardsScreen() {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+
+  // Merriam-Webster pronunciation audio, resolved lazily per word and cached
+  // (server-side dictionary_cache + this session map). No device TTS.
+  const player = useAudioPlayer();
+  const [audioUrls] = useState(() => new Map<string, string | null>());
+  const speak = async (headword: string) => {
+    let url = audioUrls.get(headword);
+    if (url === undefined) {
+      try {
+        const payload = await lookupWord(headword);
+        url = payload.entries?.find((entry) => entry.audioUrl)?.audioUrl ?? null;
+      } catch {
+        url = null;
+      }
+      audioUrls.set(headword, url);
+    }
+    if (url) {
+      player.replace(url);
+      player.play();
+    }
+  };
 
   if (wordsQuery.isLoading || !pack) {
     return (
@@ -110,7 +132,7 @@ export default function FlashcardsScreen() {
           word={word}
           flipped={flipped}
           onFlip={() => setFlipped((f) => !f)}
-          onSpeak={() => Speech.speak(word.word, { language: 'en-US' })}
+          onSpeak={() => speak(word.word)}
         />
 
         {/* Controls */}

@@ -264,6 +264,32 @@ export default function DictionaryScreen() {
                 ))}
               </View>
             ))}
+
+            {result.synonyms?.length ? (
+              <View style={{ gap: 8 }}>
+                <AppText style={[type.labelSm, { color: colors.onSurfaceVariant }]}>
+                  SYNONYMS
+                </AppText>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {result.synonyms.map((synonym) => (
+                    <Chip key={synonym} label={synonym} onPress={() => search(synonym)} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {result.antonyms?.length ? (
+              <View style={{ gap: 8 }}>
+                <AppText style={[type.labelSm, { color: colors.onSurfaceVariant }]}>
+                  ANTONYMS
+                </AppText>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {result.antonyms.map((antonym) => (
+                    <Chip key={antonym} label={antonym} onPress={() => search(antonym)} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
