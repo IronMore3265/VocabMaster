@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { icon, inputCls, primaryBtn } from '../ui.js';
+import { bindPasswordPeek, icon, inputCls, passwordField, primaryBtn } from '../ui.js';
 import { PASSWORD_RULES, checkPassword, passwordValid } from '../lib/password.js';
 
 function reqList() {
@@ -32,7 +32,7 @@ export function render() {
 
       <input data-name type="text" placeholder="Display name" class="${inputCls}" />
       <input data-email type="email" autocomplete="email" placeholder="Email" class="${inputCls}" />
-      <input data-password type="password" autocomplete="new-password" placeholder="Password" class="${inputCls}" />
+      ${passwordField('data-password', { autocomplete: 'new-password' })}
 
       ${reqList()}
 
@@ -57,6 +57,7 @@ export function mount(root) {
   const errorEl = root.querySelector('[data-error]');
   const noticeEl = root.querySelector('[data-notice]');
   const reqItems = [...root.querySelectorAll('[data-req]')];
+  bindPasswordPeek(root);
   let loading = false;
 
   const refreshReqs = () => {

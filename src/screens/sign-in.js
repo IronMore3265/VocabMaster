@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { icon, inputCls, primaryBtn } from '../ui.js';
+import { bindPasswordPeek, icon, inputCls, passwordField, primaryBtn } from '../ui.js';
 
 export function render() {
   return `
@@ -14,7 +14,7 @@ export function render() {
       </div>
 
       <input data-email type="email" autocomplete="email" placeholder="Email" class="${inputCls}" />
-      <input data-password type="password" autocomplete="current-password" placeholder="Password" class="${inputCls}" />
+      ${passwordField('data-password', { autocomplete: 'current-password' })}
 
       <p data-error class="text-body-sm text-error hidden"></p>
 
@@ -33,6 +33,7 @@ export function mount(root) {
   const password = root.querySelector('[data-password]');
   const submit = root.querySelector('[data-submit]');
   const errorEl = root.querySelector('[data-error]');
+  bindPasswordPeek(root);
   let loading = false;
 
   const refresh = () => {

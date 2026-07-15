@@ -6,10 +6,11 @@
 import {
   Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
   BookmarkCheck, BookmarkPlus, Calendar, Check, ChevronLeft, ChevronRight,
-  CircleAlert, CircleCheckBig, CircleUserRound, CircleX, Combine, Flame, Flag,
-  GraduationCap, Hand, History, Layers, Library, Lock, LogOut, Mail, Menu, Minus,
-  Moon, Palette, PenLine, Play, Plus, RefreshCw, RotateCcw, Search, Settings,
-  Smile, Sparkles, Sun, SunMoon, Target, TriangleAlert, Trophy, Volume2, X,
+  CircleAlert, CircleCheckBig, CircleUserRound, CircleX, Combine, Download, Eye,
+  EyeOff, Flame, Flag, GraduationCap, Hand, History, Layers, Library, Lock,
+  LogOut, Mail, Menu, Minus, Moon, Palette, PenLine, Play, Plus, RefreshCw,
+  RotateCcw, ScrollText, Search, Settings, Smile, Sparkles, Sun, SunMoon, Target,
+  Trash2, TriangleAlert, Trophy, Volume2, X,
 } from 'lucide';
 
 export const ICONS = {
@@ -75,6 +76,14 @@ export const ICONS = {
   // auth
   mail: Mail,
   lock: Lock,
+  visibility: Eye,
+  visibility_off: EyeOff,
+
+  // settings / account
+  delete: Trash2,
+  download: Download,
+  update: RefreshCw,
+  changelog: ScrollText,
 
   // theme
   light: Sun,

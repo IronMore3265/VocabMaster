@@ -19,17 +19,17 @@ export function esc(s) {
 }
 
 // ---------- top app bar: tab pages ----------
+// The title is absolutely centered so the menu (left) and settings (right)
+// icons sit on the same row, vertically aligned to the centered heading.
 export function appHeader(title = 'VocabMaster') {
   return `
   <header class="pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track transition-colors">
-    <div class="flex justify-between items-center gap-2 h-16 px-5">
-      <div class="flex items-center gap-3 min-w-0">
-        <button data-nav="menu" class="p-1 rounded text-primary active:opacity-70 transition-opacity shrink-0">
-          ${icon('menu')}
-        </button>
-        <h1 class="text-headline-md font-headline text-on-surface truncate">${esc(title)}</h1>
-      </div>
-      <button data-nav="#/settings" class="p-1 rounded-full text-on-surface-variant active:opacity-70 transition-opacity shrink-0">
+    <div class="relative flex items-center h-16 px-5">
+      <button data-nav="menu" class="p-1 rounded text-primary active:opacity-70 transition-opacity shrink-0">
+        ${icon('menu')}
+      </button>
+      <h1 class="absolute left-1/2 -translate-x-1/2 max-w-[60%] text-center text-headline-md font-headline text-on-surface truncate">${esc(title)}</h1>
+      <button data-nav="#/settings" class="ml-auto p-1 rounded-full text-on-surface-variant active:opacity-70 transition-opacity shrink-0">
         ${icon('settings')}
       </button>
     </div>
@@ -40,12 +40,12 @@ export function appHeader(title = 'VocabMaster') {
 export function subHeader(title = '', actionsHtml = '') {
   return `
   <header class="pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track">
-    <div class="flex items-center gap-2 h-16 px-2">
-      <button data-nav="back" class="p-3 rounded-full text-on-surface active:opacity-70 transition-opacity">
+    <div class="relative flex items-center h-16 px-2">
+      <button data-nav="back" class="p-3 rounded-full text-on-surface active:opacity-70 transition-opacity shrink-0">
         ${icon('arrow_back')}
       </button>
-      <h1 class="text-headline-md font-headline text-on-surface flex-grow truncate">${esc(title)}</h1>
-      ${actionsHtml}
+      <h1 class="absolute left-1/2 -translate-x-1/2 max-w-[60%] text-center text-headline-md font-headline text-on-surface truncate">${esc(title)}</h1>
+      <div class="ml-auto flex items-center shrink-0">${actionsHtml}</div>
     </div>
   </header>`;
 }
@@ -95,6 +95,33 @@ export function field(label, inputHtml) {
     <span class="text-label-sm uppercase text-on-surface-variant block mb-2">${esc(label)}</span>
     ${inputHtml}
   </label>`;
+}
+
+// Password input with a peek toggle. `attrs` marks the input for the screen to
+// query (e.g. 'data-password'); wire the eye button with bindPasswordPeek().
+export function passwordField(attrs, { autocomplete = 'current-password', placeholder = 'Password' } = {}) {
+  return `
+  <div class="relative">
+    <input ${attrs} type="password" autocomplete="${autocomplete}" placeholder="${esc(placeholder)}" class="${inputCls} pr-12" />
+    <button type="button" data-peek aria-label="Show password" aria-pressed="false"
+      class="absolute right-1.5 top-1/2 -translate-y-1/2 p-2.5 rounded-full text-on-surface-variant active:opacity-70 transition-opacity">
+      ${icon('visibility')}
+    </button>
+  </div>`;
+}
+
+export function bindPasswordPeek(scope) {
+  scope.querySelectorAll('[data-peek]').forEach((btn) => {
+    const input = btn.parentElement.querySelector('input');
+    if (!input) return;
+    btn.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', String(show));
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.innerHTML = icon(show ? 'visibility_off' : 'visibility');
+    });
+  });
 }
 
 // ---------- progress ----------

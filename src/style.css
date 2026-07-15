@@ -16,18 +16,18 @@
   src: url('./assets/fonts/inter.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: 'Google Sans Flex';
   font-style: normal;
-  font-weight: 100 800;
+  font-weight: 1 1000;
   font-display: swap;
-  src: url('./assets/fonts/jetbrains-mono.woff2') format('woff2');
+  src: url('./assets/fonts/google-sans-flex.woff2') format('woff2');
 }
 
 /* ---------- "Academic Clarity" design tokens (from src/lib/theme/tokens.ts) ---------- */
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-headline: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono: 'Google Sans Flex', ui-sans-serif, system-ui, sans-serif;
 
   --color-background: #f7f9fb;
   --color-surface: #ffffff;
