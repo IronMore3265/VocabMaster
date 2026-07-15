@@ -11,10 +11,12 @@ const TILES = [
 function tile(packId, t, subtitle) {
   return `
   <button data-nav="#/practice/${packId}/${t.route}"
-    class="tile ${t.cls} rounded-3xl min-h-[150px] flex flex-col items-center justify-center gap-2 p-4 text-center active:scale-[0.98] transition-transform">
-    ${icon(t.ic, 'text-[32px]')}
-    <span class="text-[16px] font-headline">${t.title}</span>
-    <span class="text-body-sm opacity-75">${esc(subtitle ?? t.subtitle)}</span>
+    class="tile ${t.cls} rounded-3xl w-full min-h-[164px] flex flex-col items-center justify-center gap-3 p-6 text-center active:scale-[0.98] transition-transform">
+    ${icon(t.ic, 'text-[42px]')}
+    <div class="flex flex-col gap-1">
+      <span class="text-headline-sm font-headline">${t.title}</span>
+      <span class="text-body-sm opacity-75">${esc(subtitle ?? t.subtitle)}</span>
+    </div>
   </button>`;
 }
 
@@ -49,8 +51,8 @@ export function mount(root, packId) {
         </div>
         ${progressRing({ progress: ratio })}
       </div>
-      <div class="grid grid-cols-2 gap-4">
-        ${tile(id, TILES[0], `Review ${pack.word_count} words`)}
+      <div class="flex flex-col gap-4">
+        ${tile(id, TILES[0], `Review ${pack.word_count} cards`)}
         ${tile(id, TILES[1])}
         ${tile(id, TILES[2])}
         ${tile(id, TILES[3])}

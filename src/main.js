@@ -77,6 +77,7 @@ function openMenu() {
     <h2 class="text-headline-sm font-headline text-on-surface mb-4">VocabMaster</h2>
     ${item('#/library', 'local_library', 'Library')}
     ${item('#/dictionary', 'dictionary', 'Dictionary')}
+    ${item('#/practice/ai', 'auto_awesome', 'AI Coach')}
     ${item('#/analytics', 'monitoring', 'Analytics')}
     ${item('#/settings', 'settings', 'Settings')}
     <button data-signout class="w-full flex items-center gap-4 px-2 py-4 text-on-surface-variant active:bg-surface-container-low transition-colors">

@@ -115,6 +115,41 @@ export function computeStreak(timestamps, now = new Date()) {
   return streak;
 }
 
+/** Longest run of consecutive practice days anywhere in the history window. */
+export function computeLongestStreak(timestamps) {
+  const days = [...new Set(timestamps.map((ts) => new Date(ts).toDateString()))]
+    .map((s) => new Date(s).getTime())
+    .sort((a, b) => a - b);
+  if (days.length === 0) return 0;
+  const DAY = 24 * 60 * 60 * 1000;
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i++) {
+    const gap = Math.round((days[i] - days[i - 1]) / DAY);
+    run = gap === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/** Practice-attempt counts for the last `n` days (oldest → today), for charts. */
+export function dailyActivity(timestamps, n = 7, now = new Date()) {
+  const buckets = [];
+  const index = new Map();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const bucket = { date: d, key: d.toDateString(), count: 0 };
+    index.set(bucket.key, buckets.length);
+    buckets.push(bucket);
+  }
+  for (const ts of timestamps) {
+    const k = new Date(ts).toDateString();
+    if (index.has(k)) buckets[index.get(k)].count++;
+  }
+  return buckets;
+}
+
 // ---------- writes ----------
 
 /**

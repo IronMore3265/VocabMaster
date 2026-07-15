@@ -39,13 +39,14 @@
   --color-on-surface-variant: #64748b;
   --color-outline: #94a3b8;
   --color-outline-variant: #e2e8f0;
-  /* Primary = friendly green CTA (design_edit.md §3 Action Colors) */
-  --color-primary: #16a34a;
+  /* Primary = calm blue brand/CTA (kept distinct from the success green so the
+     brand no longer reads as "correct") */
+  --color-primary: #2563eb;
   --color-on-primary: #ffffff;
-  --color-primary-fixed: #dcfce7;
-  --color-primary-fixed-dim: #bbf7d0;
-  --color-on-primary-fixed: #14532d;
-  /* Secondary shares the success-green family */
+  --color-primary-fixed: #dbeafe;
+  --color-primary-fixed-dim: #93c5fd;
+  --color-on-primary-fixed: #1e3a8a;
+  /* Secondary stays the success-green family (correct answers, progress mastery) */
   --color-secondary: #15803d;
   --color-on-secondary: #ffffff;
   --color-secondary-fixed: #dcfce7;
@@ -103,12 +104,12 @@
   --color-on-surface-variant: #a0aec0;
   --color-outline: #8f9bab;
   --color-outline-variant: #2d3748;
-  /* Green brightens in dark so it stays legible as both fill and text */
-  --color-primary: #4ade80;
-  --color-on-primary: #052e16;
-  --color-primary-fixed: #14532d;
-  --color-primary-fixed-dim: #22c55e;
-  --color-on-primary-fixed: #bbf7d0;
+  /* Blue brightens in dark so it stays legible as both fill and text */
+  --color-primary: #60a5fa;
+  --color-on-primary: #0a1a33;
+  --color-primary-fixed: #1e3a8a;
+  --color-primary-fixed-dim: #3b82f6;
+  --color-on-primary-fixed: #bfdbfe;
   --color-secondary: #4ade80;
   --color-on-secondary: #052e16;
   --color-secondary-fixed: #14532d;

@@ -74,7 +74,7 @@ export function mount(root, packId) {
       ${progressBar((index + 1) / words.length)}
     </div>
 
-    <div class="flip-scene mt-4" style="height:380px">
+    <div class="flip-scene mt-4" data-scene style="height:380px;transition:height 0.4s cubic-bezier(0.22,1,0.36,1)">
       <div class="flip-inner" data-flip>
         <div class="flip-face bg-surface rounded-3xl p-6 shadow-card flex flex-col">
           <div class="flex justify-end">
@@ -90,7 +90,7 @@ export function mount(root, packId) {
           </div>
         </div>
         <div class="flip-face flip-back bg-surface rounded-3xl p-6 shadow-card overflow-y-auto">
-          <div class="flex flex-col gap-3.5">
+          <div class="flex flex-col gap-3.5" data-back-content>
             <span class="self-start bg-primary-fixed text-on-primary-fixed rounded-full px-3 py-1 text-label-sm uppercase">${esc(posLabel(word.part_of_speech))}</span>
             <p class="text-body-lg text-on-surface">${esc(word.definition ?? '')}</p>
             ${examples.length ? `
@@ -122,7 +122,24 @@ export function mount(root, packId) {
   function toggleFlip() {
     flipped = !flipped;
     body.querySelector('[data-flip]').classList.toggle('is-flipped', flipped);
+    resizeScene();
     drawControls();
+  }
+
+  // Grow the card to fit the (usually taller) back so details show without
+  // scrolling; shrink back to the compact size when showing the word.
+  function resizeScene() {
+    const BASE = 380;
+    const scene = body.querySelector('[data-scene]');
+    if (!scene) return;
+    if (flipped) {
+      const content = scene.querySelector('[data-back-content]');
+      const needed = (content?.scrollHeight ?? 0) + 48; // p-6 top + bottom
+      const max = Math.max(BASE, window.innerHeight - 220); // room for header + controls
+      scene.style.height = `${Math.min(needed, max)}px`;
+    } else {
+      scene.style.height = `${BASE}px`;
+    }
   }
 
   function drawControls() {

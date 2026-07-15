@@ -10,21 +10,23 @@ const GRADIENTS = {
 
 function bookCard(meta, progress) {
   const [from, to] = GRADIENTS[meta.book] ?? GRADIENTS[1];
+  const pct = Math.round(progress * 100);
   return `
-  <button data-nav="#/book/${meta.book}" class="text-left bg-surface rounded-3xl overflow-hidden shadow-card active:scale-[0.98] transition-transform">
-    <div class="h-36 flex items-center justify-center" style="background:linear-gradient(135deg, ${from}, ${to})">
-      ${icon('menu_book', 'text-[56px] text-[#1a202c]')}
-    </div>
-    <div class="p-4 flex flex-col gap-0.5">
-      <h3 class="text-headline-sm font-headline text-on-surface">${esc(meta.title)}</h3>
-      <p class="text-body-sm text-on-surface-variant">${esc(meta.subtitle)}</p>
-    </div>
-    <div class="border-t border-progress-track px-4 py-3 flex flex-col gap-1.5">
-      <div class="flex justify-between">
-        <span class="text-label-sm uppercase text-on-surface-variant">Progress</span>
-        <span class="text-label-sm text-secondary">${Math.round(progress * 100)}%</span>
+  <button data-nav="#/book/${meta.book}" class="text-left bg-surface rounded-3xl p-5 shadow-card active:scale-[0.98] transition-transform">
+    <div class="flex items-start gap-4">
+      <div class="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0" style="background:linear-gradient(135deg, ${from}, ${to})">
+        ${icon('case_sensitive', 'text-[34px] text-[#1a202c]')}
       </div>
-      ${progressBar(progress)}
+      <div class="flex-1 min-w-0 pt-0.5">
+        <p class="text-label-sm uppercase text-on-surface-variant">Book ${meta.book}</p>
+        <h3 class="text-headline-md font-headline text-on-surface leading-tight">${esc(meta.title)}</h3>
+        <p class="text-body-sm text-on-surface-variant mt-0.5 truncate">${esc(meta.subtitle)}</p>
+      </div>
+      <span class="font-mono text-headline-sm text-primary shrink-0 pt-0.5">${pct}%</span>
+    </div>
+    <div class="mt-4 flex items-center gap-3">
+      ${progressBar(progress, { className: 'flex-1' })}
+      <span class="text-label-sm uppercase text-on-surface-variant shrink-0">Progress</span>
     </div>
   </button>`;
 }

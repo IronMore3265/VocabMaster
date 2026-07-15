@@ -5,17 +5,18 @@
 // app's own vocabulary so a future change of icon set is a one-file edit.
 import {
   Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
-  BookmarkCheck, BookmarkPlus, Calendar, Check, ChevronLeft, ChevronRight,
-  CircleAlert, CircleCheckBig, CircleUserRound, CircleX, Combine, Download, Eye,
-  EyeOff, Flame, Flag, GraduationCap, Hand, History, Layers, Library, Lock,
-  LogOut, Mail, Menu, Minus, Moon, Palette, PenLine, Play, Plus, RefreshCw,
-  RotateCcw, ScrollText, Search, Settings, Smile, Sparkles, Sun, SunMoon, Target,
-  Trash2, TriangleAlert, Trophy, Volume2, X,
+  BookmarkCheck, BookmarkPlus, Calendar, CalendarDays, CaseSensitive, ChartColumn,
+  Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheckBig, CircleUserRound,
+  CircleX, Combine, Download, Eye, EyeOff, Flame, Flag, GraduationCap, Hand,
+  History, Layers, Library, Lock, LogOut, Mail, Menu, Minus, Moon, Palette,
+  PenLine, Play, Plus, RefreshCw, RotateCcw, ScrollText, Search, Settings, Smile,
+  Sparkles, Sun, SunMoon, Target, TextAlignStart, TrendingUp, Trash2,
+  TriangleAlert, Trophy, Volume2, X, Zap,
 } from 'lucide';
 
 export const ICONS = {
   // chrome + navigation
-  menu: Menu,
+  menu: TextAlignStart,
   arrow_back: ArrowLeft,
   arrow_forward: ArrowRight,
   chevron_left: ChevronLeft,
@@ -34,6 +35,7 @@ export const ICONS = {
   // books + packs
   menu_book: BookOpen,
   book_2: BookOpen,
+  case_sensitive: CaseSensitive,
 
   // actions
   add: Plus,
@@ -64,6 +66,10 @@ export const ICONS = {
   trophy: Trophy,
   calendar: Calendar,
   flag: Flag,
+  bar_chart: ChartColumn,
+  trending_up: TrendingUp,
+  week: CalendarDays,
+  bolt: Zap,
 
   // ai coach
   auto_awesome: Sparkles,

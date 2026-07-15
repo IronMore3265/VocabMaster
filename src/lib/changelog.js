@@ -2,6 +2,19 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '4.0.0',
+    date: '2026-07-15',
+    notes: [
+      'Refreshed the app with a new blue theme so the brand colour is no longer confused with the green “correct” colour.',
+      'Redesigned the Word Smart 1 & 2 cards and gave each practice type its own large, centered tile.',
+      'Flashcards now grow when you flip them, so the full definition, examples and synonyms fit without scrolling.',
+      'The AI Coach now has its own tab next to Dictionary, and explains what it does the first time you open it.',
+      'Rebuilt the Analytics dashboard with a weekly practice chart, a library-mastery bar and a best-streak stat.',
+      'Sign-in now remembers your email when you tick “Remember me”, so you only need to type your password.',
+      'Onboarding puts Back beside Next and shows Skip tour as a clear button.',
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-07-15',
     notes: [

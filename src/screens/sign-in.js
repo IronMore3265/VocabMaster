@@ -1,7 +1,9 @@
 import { supabase } from '../supabase.js';
-import { bindPasswordPeek, icon, inputCls, passwordField, primaryBtn } from '../ui.js';
+import { clearRememberedEmail, getRememberedEmail, setRememberedEmail } from '../store.js';
+import { bindPasswordPeek, esc, icon, inputCls, passwordField, primaryBtn } from '../ui.js';
 
 export function render() {
+  const savedEmail = getRememberedEmail();
   return `
   <div class="min-h-dvh bg-background px-5 pt-safe">
     <div class="max-w-md mx-auto flex flex-col gap-4" style="padding-top:72px">
@@ -13,8 +15,14 @@ export function render() {
         <p class="text-body-md text-on-surface-variant text-center">Sign in to continue your vocabulary journey.</p>
       </div>
 
-      <input data-email type="email" autocomplete="email" placeholder="Email" class="${inputCls}" />
+      <input data-email type="email" autocomplete="email" placeholder="Email" value="${esc(savedEmail)}" class="${inputCls}" />
       ${passwordField('data-password', { autocomplete: 'current-password' })}
+
+      <label class="flex items-center gap-2.5 px-1 select-none">
+        <input data-remember type="checkbox" ${savedEmail ? 'checked' : ''}
+          class="w-4 h-4 rounded border-outline-variant accent-primary" />
+        <span class="text-body-sm text-on-surface-variant">Remember me</span>
+      </label>
 
       <p data-error class="text-body-sm text-error hidden"></p>
 
@@ -31,10 +39,14 @@ export function render() {
 export function mount(root) {
   const email = root.querySelector('[data-email]');
   const password = root.querySelector('[data-password]');
+  const remember = root.querySelector('[data-remember]');
   const submit = root.querySelector('[data-submit]');
   const errorEl = root.querySelector('[data-error]');
   bindPasswordPeek(root);
   let loading = false;
+
+  // Email pre-filled from "Remember me" — jump straight to the password field.
+  if (email.value) password.focus();
 
   const refresh = () => {
     submit.disabled = loading || !email.value || !password.value;
@@ -47,15 +59,20 @@ export function mount(root) {
     if (submit.disabled) return;
     loading = true; refresh();
     errorEl.classList.add('hidden');
+    const trimmedEmail = email.value.trim();
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.value.trim(),
+      email: trimmedEmail,
       password: password.value,
     });
     loading = false; refresh();
     if (error) {
       errorEl.textContent = error.message;
       errorEl.classList.remove('hidden');
+      return;
     }
+    // Success: persist (or forget) the email per the checkbox.
+    if (remember.checked) setRememberedEmail(trimmedEmail);
+    else clearRememberedEmail();
     // On success the auth listener re-renders the app into the tabs.
   };
   submit.addEventListener('click', doSignIn);

@@ -58,12 +58,7 @@ export function mount(root) {
     const slide = SLIDES[step];
     const last = step === SLIDES.length - 1;
     host.innerHTML = `
-    <div class="flex justify-between items-center px-3 pt-3 h-12">
-      ${step > 0
-        ? `<button data-back class="flex items-center gap-1 text-body-sm text-on-surface-variant pl-1 pr-2 py-1 rounded-full active:opacity-70 transition-opacity">${icon('arrow_back', 'text-[18px]')}<span>Back</span></button>`
-        : '<span></span>'}
-      ${step < SLIDES.length - 1 ? '<button data-skip class="text-body-sm text-on-surface-variant px-2 py-1">Skip tour</button>' : '<span></span>'}
-    </div>
+    <div class="h-12"></div>
 
     <div class="flex-1 flex flex-col items-center justify-center px-8 gap-8 text-center fade-in" data-slide>
       ${slide.art}
@@ -78,7 +73,13 @@ export function mount(root) {
       <div class="flex justify-center gap-2">
         ${SLIDES.map((_, i) => `<span class="h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-primary' : 'w-1.5 bg-outline-variant'}"></span>`).join('')}
       </div>
-      ${primaryBtn(last ? 'Get Started' : 'Next', 'data-next')}
+      <div class="flex gap-3">
+        ${step > 0
+          ? `<button data-back class="px-6 h-[54px] rounded-full border border-outline-variant text-on-surface text-body-md font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">${icon('arrow_back', 'text-[20px]')}<span>Back</span></button>`
+          : ''}
+        <div class="flex-1">${primaryBtn(last ? 'Get Started' : 'Next', 'data-next')}</div>
+      </div>
+      ${last ? '' : `<button data-skip class="self-center px-6 py-2.5 rounded-full border border-outline-variant text-on-surface-variant text-body-sm active:scale-[0.98] transition-transform">Skip tour</button>`}
     </div>`;
 
     if (slide.setup) bindThemeChooser(host);

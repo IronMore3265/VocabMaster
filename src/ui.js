@@ -54,6 +54,7 @@ export function subHeader(title = '', actionsHtml = '') {
 const TABS = [
   { route: '#/library', iconName: 'local_library', label: 'Library' },
   { route: '#/dictionary', iconName: 'dictionary', label: 'Dictionary' },
+  { route: '#/practice/ai', iconName: 'auto_awesome', label: 'AI Coach' },
   { route: '#/analytics', iconName: 'monitoring', label: 'Analytics' },
 ];
 
@@ -129,7 +130,7 @@ export function progressBar(ratio, { height = 8, className = '' } = {}) {
   const pct = Math.min(100, Math.max(0, ratio * 100));
   return `
   <div class="w-full rounded-full bg-progress-track overflow-hidden ${className}" style="height:${height}px">
-    <div class="grow-x h-full rounded-full bg-secondary-fixed-dim" style="width:${pct}%"></div>
+    <div class="grow-x h-full rounded-full bg-primary-fixed-dim" style="width:${pct}%"></div>
   </div>`;
 }
 
@@ -142,7 +143,7 @@ export function progressRing({ progress = 0, size = 96, stroke = 10, label } = {
   <div class="relative flex items-center justify-center" style="width:${size}px;height:${size}px">
     <svg width="${size}" height="${size}" class="-rotate-90">
       <circle class="stroke-progress-track" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}"></circle>
-      <circle data-ring class="stroke-secondary-fixed-dim timer-ring" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none"
+      <circle data-ring class="stroke-primary-fixed-dim timer-ring" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none"
         stroke-width="${stroke}" stroke-linecap="round"
         stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"></circle>
     </svg>

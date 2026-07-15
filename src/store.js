@@ -40,6 +40,30 @@ export function setOnboarded(value = true) {
   save('onboarded', value);
 }
 
+// ---------- remembered sign-in email ----------
+// "Remember me" persists only the email so the next sign-in prefills it and the
+// user just types their password. The password is never stored.
+export function getRememberedEmail() {
+  return load('auth.email', '') || '';
+}
+
+export function setRememberedEmail(email) {
+  save('auth.email', email || '');
+}
+
+export function clearRememberedEmail() {
+  save('auth.email', '');
+}
+
+// ---------- AI coach first-run explainer ----------
+export function hasSeenAiIntro() {
+  return load('ai.introSeen', false) === true;
+}
+
+export function setAiIntroSeen() {
+  save('ai.introSeen', true);
+}
+
 // ---------- recent dictionary searches ----------
 const RECENT_MAX = 8;
 
