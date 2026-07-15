@@ -103,7 +103,6 @@ export const fonts = {
   body: 'Inter_400Regular',
   bodyMedium: 'Inter_500Medium',
   mono: 'JetBrainsMono_500Medium',
-  icons: 'MaterialSymbolsOutlined',
 } as const;
 
 export const type = {

@@ -50,7 +50,6 @@ export default function RootLayout() {
     Inter_400Regular,
     Inter_500Medium,
     JetBrainsMono_500Medium,
-    MaterialSymbolsOutlined: require('@/assets/fonts/MaterialSymbolsOutlined.ttf'),
   });
 
   useEffect(() => {

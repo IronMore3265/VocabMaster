@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, radii, spacing, type } from '@/lib/theme/tokens';
 import { POS_LABELS, type WordRow } from '@/types/models';
@@ -85,7 +85,7 @@ export function FlipCard({ word, flipped, onFlip, onSpeak }: Props) {
         <Animated.View style={[face, cardShadow, frontStyle]}>
           <View style={{ alignItems: 'flex-end' }}>
             <Pressable hitSlop={12} onPress={onSpeak}>
-              <MaterialSymbol name="volume_up" size={26} color={colors.onSurfaceVariant} />
+              <Icon name="volume_up" size={26} color={colors.onSurfaceVariant} />
             </Pressable>
           </View>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -99,7 +99,7 @@ export function FlipCard({ word, flipped, onFlip, onSpeak }: Props) {
             ) : null}
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, alignItems: 'center' }}>
-            <MaterialSymbol name="touch_app" size={18} color={colors.outline} />
+            <Icon name="touch_app" size={18} color={colors.outline} />
             <AppText style={[type.labelSm, { color: colors.outline }]}>TAP TO FLIP</AppText>
           </View>
         </Animated.View>

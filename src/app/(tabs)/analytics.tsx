@@ -9,7 +9,7 @@ import {
   useWeakWords,
 } from '@/api/queries';
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { PressableScale } from '@/components/PressableScale';
 import { ProgressBar } from '@/components/ProgressBar';
 import { StatTile } from '@/components/StatTile';
@@ -90,7 +90,7 @@ export default function AnalyticsScreen() {
             gap: 8,
           }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <MaterialSymbol name="auto_awesome" size={26} color={colors.onPrimary} />
+            <Icon name="auto_awesome" size={26} color={colors.onPrimary} />
             <AppText style={[type.headlineSm, { color: colors.onPrimary }]}>AI Coach</AppText>
           </View>
           <AppText style={[type.bodySm, { color: colors.onPrimary, opacity: 0.85 }]}>
@@ -189,7 +189,7 @@ export default function AnalyticsScreen() {
               gap: 8,
               paddingVertical: spacing.lg,
             }}>
-            <MaterialSymbol name="sentiment_satisfied" size={36} color={colors.outlineVariant} />
+            <Icon name="sentiment_satisfied" size={36} color={colors.outlineVariant} />
             <AppText style={[type.bodySm, { color: colors.onSurfaceVariant, textAlign: 'center' }]}>
               No weak words yet — miss a word twice and it shows up here.
             </AppText>
@@ -210,7 +210,7 @@ export default function AnalyticsScreen() {
             gap: 8,
             alignItems: 'center',
           }}>
-          <MaterialSymbol name="logout" size={18} color={colors.onSurfaceVariant} />
+          <Icon name="logout" size={18} color={colors.onSurfaceVariant} />
           <AppText style={[type.bodySm, { color: colors.onSurfaceVariant }]}>Sign out</AppText>
         </Pressable>
       </ScrollView>

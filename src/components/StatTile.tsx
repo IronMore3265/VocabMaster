@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, fonts, radii, type } from '@/lib/theme/tokens';
 
@@ -26,7 +26,7 @@ export function StatTile({ icon, value, label }: Props) {
         },
         cardShadow,
       ]}>
-      <MaterialSymbol name={icon} size={22} color={colors.primary} />
+      <Icon name={icon} size={22} color={colors.primary} />
       <AppText style={{ fontFamily: fonts.mono, fontSize: 22, lineHeight: 28, color: colors.onSurface }}>
         {value}
       </AppText>

@@ -19,7 +19,7 @@ import {
   type DictionaryPayload,
 } from '@/api/dictionary';
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { TopBar } from '@/components/TopBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { cardShadow, fonts, radii, spacing, type } from '@/lib/theme/tokens';
@@ -56,7 +56,7 @@ function AudioButton({ url }: { url: string }) {
         player.seekTo(0);
         player.play();
       }}>
-      <MaterialSymbol name="volume_up" size={22} color={colors.primary} />
+      <Icon name="volume_up" size={22} color={colors.primary} />
     </Pressable>
   );
 }
@@ -117,7 +117,7 @@ export default function DictionaryScreen() {
             paddingHorizontal: 16,
             marginTop: spacing.sm,
           }}>
-          <MaterialSymbol name="search" size={22} color={colors.outline} />
+          <Icon name="search" size={22} color={colors.outline} />
           <TextInput
             style={{
               flex: 1,
@@ -142,7 +142,7 @@ export default function DictionaryScreen() {
                 setQuery('');
                 setResult(null);
               }}>
-              <MaterialSymbol name="close" size={20} color={colors.outline} />
+              <Icon name="close" size={20} color={colors.outline} />
             </Pressable>
           ) : null}
         </View>
@@ -228,7 +228,7 @@ export default function DictionaryScreen() {
                     bookmarked: isBookmarked,
                   })
                 }>
-                <MaterialSymbol
+                <Icon
                   name={isBookmarked ? 'bookmark_added' : 'bookmark_add'}
                   size={24}
                   color={isBookmarked ? colors.secondary : colors.onSurfaceVariant}
@@ -307,7 +307,7 @@ export default function DictionaryScreen() {
 
         {!result && !lookup.isPending && recent.length === 0 ? (
           <View style={{ alignItems: 'center', gap: 10, paddingVertical: spacing.lg }}>
-            <MaterialSymbol name="dictionary" size={44} color={colors.outlineVariant} />
+            <Icon name="dictionary" size={44} color={colors.outlineVariant} />
             <AppText style={[type.bodySm, { color: colors.onSurfaceVariant, textAlign: 'center' }]}>
               Look up any English word — Merriam-Webster definitions,{'\n'}pronunciation audio and
               bookmarks.

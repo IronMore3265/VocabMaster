@@ -1,5 +1,5 @@
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { PressableScale } from '@/components/PressableScale';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { radii, type, type ExerciseKey } from '@/lib/theme/tokens';
@@ -37,7 +37,7 @@ export function ExerciseTile({ kind, onPress, subtitle }: Props) {
         borderWidth: isDark ? 1 : 0,
         borderColor: colors.outlineVariant,
       }}>
-      <MaterialSymbol name={meta.icon} size={32} color={textColor} />
+      <Icon name={meta.icon} size={32} color={textColor} />
       <AppText style={[type.headlineSm, { fontSize: 16, color: textColor, textAlign: 'center' }]}>
         {meta.title}
       </AppText>

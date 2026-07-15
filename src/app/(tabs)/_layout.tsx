@@ -2,14 +2,14 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { Platform, View, type ColorValue } from 'react-native';
 
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { fonts } from '@/lib/theme/tokens';
 
 function TabIcon({ name, color, focused }: { name: string; color: ColorValue; focused: boolean }) {
   return (
     <View style={{ alignItems: 'center', gap: 3 }}>
-      <MaterialSymbol name={name} size={24} color={color} />
+      <Icon name={name} size={24} color={color} />
       <View
         style={{
           width: 4,

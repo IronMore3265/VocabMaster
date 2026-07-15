@@ -8,7 +8,7 @@ import { lookupWord } from '@/api/dictionary';
 import { usePackWords, usePacks, useRecordAttempt } from '@/api/queries';
 import { AppText } from '@/components/AppText';
 import { FlipCard } from '@/components/FlipCard';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { ProgressBar } from '@/components/ProgressBar';
 import { TopBar } from '@/components/TopBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
@@ -151,7 +151,7 @@ export default function FlashcardsScreen() {
                   justifyContent: 'center',
                   gap: 8,
                 }}>
-                <MaterialSymbol name="replay" size={22} color={colors.onErrorContainer} />
+                <Icon name="replay" size={22} color={colors.onErrorContainer} />
                 <AppText
                   style={[type.headlineSm, { fontSize: 16, color: colors.onErrorContainer }]}>
                   Again
@@ -169,7 +169,7 @@ export default function FlashcardsScreen() {
                   justifyContent: 'center',
                   gap: 8,
                 }}>
-                <MaterialSymbol name="check" size={22} color={colors.onSecondary} />
+                <Icon name="check" size={22} color={colors.onSecondary} />
                 <AppText style={[type.headlineSm, { fontSize: 16, color: colors.onSecondary }]}>
                   Got it
                 </AppText>
@@ -184,7 +184,7 @@ export default function FlashcardsScreen() {
                 gap: spacing.gutter,
               }}>
               <Pressable style={roundButton} disabled={index === 0} onPress={() => go(-1)}>
-                <MaterialSymbol
+                <Icon
                   name="arrow_back"
                   size={24}
                   color={index === 0 ? colors.outlineVariant : colors.onSurface}
@@ -202,7 +202,7 @@ export default function FlashcardsScreen() {
                   justifyContent: 'center',
                   gap: 8,
                 }}>
-                <MaterialSymbol name="flip" size={22} color={colors.onPrimary} />
+                <Icon name="flip" size={22} color={colors.onPrimary} />
                 <AppText style={[type.headlineSm, { fontSize: 16, color: colors.onPrimary }]}>
                   Flip Card
                 </AppText>
@@ -211,7 +211,7 @@ export default function FlashcardsScreen() {
                 style={roundButton}
                 disabled={index === words.length - 1}
                 onPress={() => go(1)}>
-                <MaterialSymbol
+                <Icon
                   name="arrow_forward"
                   size={24}
                   color={index === words.length - 1 ? colors.outlineVariant : colors.onSurface}

@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { radii, type } from '@/lib/theme/tokens';
 
@@ -65,7 +65,7 @@ export function OptionButton({ label, state, disabled, onPress }: Props) {
         <AppText style={[type.bodyMd, { color: palette.text }]}>{label}</AppText>
       </View>
       {palette.icon ? (
-        <MaterialSymbol
+        <Icon
           name={palette.icon}
           size={20}
           color={state === 'correct' ? colors.secondary : colors.error}

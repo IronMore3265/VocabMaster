@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { PressableScale } from '@/components/PressableScale';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
@@ -40,7 +40,7 @@ export function PackCard({ pack, progress, onPress }: Props) {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-          <MaterialSymbol name="book_2" size={22} color={colors.primary} />
+          <Icon name="book_2" size={22} color={colors.primary} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <AppText style={[type.headlineSm, { fontSize: 16, lineHeight: 22 }]}>
@@ -50,7 +50,7 @@ export function PackCard({ pack, progress, onPress }: Props) {
             {pack.word_count} WORDS
           </AppText>
         </View>
-        <MaterialSymbol name="chevron_right" size={24} color={colors.outline} />
+        <Icon name="chevron_right" size={24} color={colors.outline} />
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

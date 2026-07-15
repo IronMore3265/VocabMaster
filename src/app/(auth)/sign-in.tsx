@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import { fonts, radii, spacing, type } from '@/lib/theme/tokens';
@@ -65,7 +65,7 @@ export default function SignInScreen() {
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <MaterialSymbol name="menu_book" size={36} color={colors.primary} />
+            <Icon name="menu_book" size={36} color={colors.primary} />
           </View>
           <AppText style={[type.headlineLg, { color: colors.onSurface }]}>VocabMaster</AppText>
           <AppText style={[type.bodyMd, { color: colors.onSurfaceVariant }]}>

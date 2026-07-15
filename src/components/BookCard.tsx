@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { PressableScale } from '@/components/PressableScale';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
@@ -40,7 +40,7 @@ export function BookCard({ meta, progress, onPress }: Props) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ height: 148, alignItems: 'center', justifyContent: 'center' }}>
-        <MaterialSymbol name="menu_book" size={56} color="#191c1e" />
+        <Icon name="menu_book" size={56} color="#191c1e" />
       </LinearGradient>
 
       <View style={{ padding: spacing.md, gap: 2 }}>

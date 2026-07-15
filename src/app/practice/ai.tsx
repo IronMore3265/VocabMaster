@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { mcqItems, useCompleteSuggestion, useSuggestExercise } from '@/api/ai';
 import { AppText } from '@/components/AppText';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import { Icon } from '@/components/Icon';
 import { McqSession } from '@/components/McqSession';
 import { TopBar } from '@/components/TopBar';
 import { useTheme } from '@/lib/theme/ThemeProvider';
@@ -55,7 +55,7 @@ export default function AiPracticeScreen() {
         <View style={{ flex: 1, paddingHorizontal: spacing.margin, gap: spacing.gutter }}>
           {suggest.isPending ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-              <MaterialSymbol name="auto_awesome" size={44} color={colors.primary} />
+              <Icon name="auto_awesome" size={44} color={colors.primary} />
               <ActivityIndicator color={colors.primary} />
               <AppText style={[type.bodyMd, { color: colors.onSurfaceVariant, textAlign: 'center' }]}>
                 Analyzing your mistakes and building{'\n'}a personalized session…
@@ -65,7 +65,7 @@ export default function AiPracticeScreen() {
 
           {suggest.isError ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-              <MaterialSymbol name="error" size={40} color={colors.error} />
+              <Icon name="error" size={40} color={colors.error} />
               <AppText style={[type.bodyMd, { color: colors.onSurfaceVariant, textAlign: 'center' }]}>
                 Could not reach the AI coach. Try again in a moment.
               </AppText>
@@ -81,7 +81,7 @@ export default function AiPracticeScreen() {
 
           {response?.error === 'not_enough_data' ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-              <MaterialSymbol name="school" size={44} color={colors.outlineVariant} />
+              <Icon name="school" size={44} color={colors.outlineVariant} />
               <AppText style={[type.bodyMd, { color: colors.onSurfaceVariant, textAlign: 'center' }]}>
                 {response.message ?? 'Practice more first so the AI can find your weak spots.'}
               </AppText>
@@ -90,7 +90,7 @@ export default function AiPracticeScreen() {
 
           {response?.error && response.error !== 'not_enough_data' ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-              <MaterialSymbol name="error" size={40} color={colors.error} />
+              <Icon name="error" size={40} color={colors.error} />
               <AppText style={[type.bodySm, { color: colors.onSurfaceVariant, textAlign: 'center' }]}>
                 The AI coach hit a snag: {response.error}
               </AppText>
@@ -118,7 +118,7 @@ export default function AiPracticeScreen() {
                   cardShadow,
                 ]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <MaterialSymbol name="auto_awesome" size={24} color={colors.primary} />
+                  <Icon name="auto_awesome" size={24} color={colors.primary} />
                   <AppText style={[type.headlineSm, { color: colors.onSurface }]}>
                     Your focus today
                   </AppText>
@@ -133,7 +133,7 @@ export default function AiPracticeScreen() {
               </View>
 
               <Pressable onPress={() => setStarted(true)} style={primaryButton}>
-                <MaterialSymbol name="play_arrow" size={22} color={colors.onPrimary} />
+                <Icon name="play_arrow" size={22} color={colors.onPrimary} />
                 <AppText style={[type.headlineSm, { fontSize: 16, color: colors.onPrimary }]}>
                   Start Session
                 </AppText>
