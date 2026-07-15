@@ -1,0 +1,278 @@
+@import 'tailwindcss';
+
+/* ---------- Self-hosted variable fonts (offline inside the APK) ---------- */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('./assets/fonts/plus-jakarta-sans.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./assets/fonts/inter.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('./assets/fonts/jetbrains-mono.woff2') format('woff2');
+}
+
+/* ---------- "Academic Clarity" design tokens (from src/lib/theme/tokens.ts) ---------- */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-headline: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-background: #f7f9fb;
+  --color-surface: #ffffff;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #464554;
+  --color-outline: #767586;
+  --color-outline-variant: #c7c4d7;
+  --color-primary: #4648d4;
+  --color-on-primary: #ffffff;
+  --color-primary-fixed: #e1e0ff;
+  --color-primary-fixed-dim: #c0c1ff;
+  --color-on-primary-fixed: #07006c;
+  --color-secondary: #006c49;
+  --color-on-secondary: #ffffff;
+  --color-secondary-fixed: #6ffbbe;
+  --color-secondary-fixed-dim: #4edea3;
+  --color-progress-track: #e0e3e5;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-ink: #1e293b;
+
+  --text-headline-lg: 24px;
+  --text-headline-lg--line-height: 32px;
+  --text-headline-lg--letter-spacing: -0.5px;
+  --text-headline-lg--font-weight: 700;
+  --text-headline-md: 22px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-md--font-weight: 700;
+  --text-headline-sm: 18px;
+  --text-headline-sm--line-height: 24px;
+  --text-headline-sm--font-weight: 700;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+  --text-label-md: 14px;
+  --text-label-md--line-height: 20px;
+  --text-label-md--letter-spacing: 0.5px;
+  --text-label-md--font-weight: 500;
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.6px;
+  --text-label-sm--font-weight: 500;
+
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+/* ---------- Dark palette (from darkColors in tokens.ts) ---------- */
+.dark {
+  --color-background: #101415;
+  --color-surface: #1d2022;
+  --color-surface-container-low: #191c1e;
+  --color-surface-container: #272a2c;
+  --color-surface-container-high: #323537;
+  --color-on-surface: #e0e3e5;
+  --color-on-surface-variant: #c4c7c7;
+  --color-outline: #8e9192;
+  --color-outline-variant: #444748;
+  --color-primary: #c0c1ff;
+  --color-on-primary: #07006c;
+  --color-primary-fixed: #2f2ebe;
+  --color-primary-fixed-dim: #c0c1ff;
+  --color-on-primary-fixed: #e1e0ff;
+  --color-secondary: #4de082;
+  --color-on-secondary: #003919;
+  --color-secondary-fixed: #6dfe9c;
+  --color-secondary-fixed-dim: #4de082;
+  --color-progress-track: #323537;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+.dark {
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Headlines and mono labels pick their family from utility classes, matching the
+   RN `type` scale that bundled family + size together. */
+.font-headline { font-family: var(--font-headline); }
+
+/* ---------- Base ---------- */
+html, body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-on-surface);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+#app { overflow-x: clip; }
+
+/* ---------- Icons (Lucide, inlined as SVG by src/icons.js) ---------- */
+@layer components {
+  .icon {
+    font-size: 24px;
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    user-select: none;
+  }
+  .icon-strong { stroke-width: 2.25; }
+  .icon-solid { fill: currentColor; stroke: none; }
+}
+
+/* Safe-area helpers — fixed chrome includes the inset; pages pad past it. */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-page { padding-top: calc(4.5rem + env(safe-area-inset-top)); }
+.pb-page { padding-bottom: calc(7rem + env(safe-area-inset-bottom)); }
+.pb-page-sub { padding-bottom: calc(2.5rem + env(safe-area-inset-bottom)); }
+
+button {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+    opacity 0.2s ease, transform 0.2s ease;
+}
+
+input, textarea {
+  font-family: var(--font-sans);
+}
+.dark input[type='date'], .dark input[type='time'] { color-scheme: dark; }
+
+/* ---------- Exercise tiles — pastel fill in light, pastel ink in dark ---------- */
+/* (matches exercisePastels / exercisePastelText: dark moves the hue to text) */
+.tile { color: var(--color-ink); }
+.tile-flashcards { background: #b5e4ca; }
+.tile-matching { background: #fde293; }
+.tile-fillBlank { background: #aecbfa; }
+.tile-synAnt { background: #f6c4ad; }
+.dark .tile-flashcards { background: #1a3828; color: #b5e4ca; border: 1px solid var(--color-outline-variant); }
+.dark .tile-matching { background: #382c10; color: #fde293; border: 1px solid var(--color-outline-variant); }
+.dark .tile-fillBlank { background: #172740; color: #aecbfa; border: 1px solid var(--color-outline-variant); }
+.dark .tile-synAnt { background: #3d2319; color: #f6c4ad; border: 1px solid var(--color-outline-variant); }
+
+/* ---------- Flip card (3D rotateY) ---------- */
+.flip-scene { perspective: 1000px; }
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.flip-inner.is-flipped { transform: rotateY(180deg); }
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back { transform: rotateY(180deg); }
+
+/* ---------- Animation library ---------- */
+.fade-in { animation: fadeUp 0.5s ease-out both; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger > * { animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.03s; }
+.stagger > *:nth-child(2) { animation-delay: 0.09s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.21s; }
+.stagger > *:nth-child(5) { animation-delay: 0.27s; }
+.stagger > *:nth-child(6) { animation-delay: 0.33s; }
+.stagger > *:nth-child(7) { animation-delay: 0.39s; }
+.stagger > *:nth-child(8) { animation-delay: 0.45s; }
+
+.pop-in { animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes popIn {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.grow-x { transform-origin: left; animation: growX 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes growX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.float { animation: floaty 3.2s ease-in-out infinite; }
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.timer-ring { transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* ---------- Route view transitions ---------- */
+::view-transition-old(root), ::view-transition-new(root) {
+  animation-duration: 0.22s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-vt='forward']::view-transition-old(root) { animation-name: vtOutLeft; }
+html[data-vt='forward']::view-transition-new(root) { animation-name: vtInRight; }
+html[data-vt='back']::view-transition-old(root) { animation-name: vtOutRight; }
+html[data-vt='back']::view-transition-new(root) { animation-name: vtInLeft; }
+@keyframes vtOutLeft { to { opacity: 0; transform: translateX(-14px); } }
+@keyframes vtInRight { from { opacity: 0; transform: translateX(14px); } }
+@keyframes vtOutRight { to { opacity: 0; transform: translateX(14px); } }
+@keyframes vtInLeft { from { opacity: 0; transform: translateX(-14px); } }
+
+/* ---------- Modal sheets ---------- */
+.modal-backdrop { animation: backdropIn 0.2s ease-out both; }
+@keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdropOut { from { opacity: 1; } to { opacity: 0; } }
+.modal-sheet {
+  animation: sheetIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.modal-sheet.is-dragging { touch-action: none; }
+@keyframes sheetIn {
+  from { transform: translateY(48px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes sheetOut {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0.6; }
+}
+
+/* ---------- Toggle ---------- */
+.toggle-knob { transition: left 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
+.toggle-track { transition: background-color 0.25s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
