@@ -17,6 +17,8 @@ interface Props {
   packId: number;
   exerciseType: ExerciseType;
   headerLabel: string;
+  /** Called with the final score before navigating to the results modal. */
+  onFinished?: (correct: number, total: number) => void;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * question card + options, answer reveal with haptics, record_attempt per
  * answer, results modal at the end.
  */
-export function McqSession({ items, packId, exerciseType, headerLabel }: Props) {
+export function McqSession({ items, packId, exerciseType, headerLabel, onFinished }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
   const recordAttempt = useRecordAttempt();
@@ -51,7 +53,7 @@ export function McqSession({ items, packId, exerciseType, headerLabel }: Props) 
     setCorrectCount((count) => count + (correct ? 1 : 0));
     recordAttempt.mutate({
       wordId: item.wordId,
-      packId,
+      packId: item.packId ?? packId,
       type: exerciseType,
       correct,
     });
@@ -60,6 +62,7 @@ export function McqSession({ items, packId, exerciseType, headerLabel }: Props) 
   const next = () => {
     if (index === items.length - 1) {
       const finalCorrect = correctCount;
+      onFinished?.(finalCorrect, items.length);
       router.replace(`/results?correct=${finalCorrect}&total=${items.length}&packId=${packId}`);
       return;
     }

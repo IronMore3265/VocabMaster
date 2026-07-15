@@ -20,6 +20,8 @@ export interface McqItem {
   /** syn_ant only. */
   mode?: 'synonym' | 'antonym';
   explanation?: string;
+  /** AI mixed sessions span packs; the word's own pack for record_attempt. */
+  packId?: number;
 }
 
 export interface MatchingPair {
