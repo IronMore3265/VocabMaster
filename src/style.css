@@ -222,7 +222,12 @@ input, textarea {
 }
 
 /* ---------- Flip card (3D rotateY) ---------- */
-.flip-scene { perspective: 1000px; }
+/* Height is set in px by resizeScene(): compact for the word, taller for the
+   details, capped at the space its wrapper actually has. */
+.flip-scene {
+  perspective: 1000px;
+  transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
 .flip-inner {
   position: relative;
   width: 100%;

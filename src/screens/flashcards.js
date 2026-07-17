@@ -15,6 +15,9 @@ export function render() {
   </main>`;
 }
 
+// Compact height of the card while it shows the word.
+const BASE_HEIGHT = 380;
+
 export function mount(root, packId) {
   const id = Number(packId);
   const body = root.querySelector('[data-body]');
@@ -78,7 +81,8 @@ export function mount(root, packId) {
       <div data-progress>${progressBar(1 / words.length)}</div>
     </div>
 
-    <div class="flip-scene mt-4 flex-1 min-h-0" data-scene>
+    <div data-scene-wrap class="flex-1 min-h-0 mt-4">
+      <div class="flip-scene" data-scene>
       <div class="flip-inner" data-flip>
         <div class="flip-face bg-surface rounded-3xl p-6 shadow-card flex flex-col">
           <div class="flex justify-end">
@@ -97,6 +101,7 @@ export function mount(root, packId) {
           <div data-scroll-hint class="hidden pointer-events-none absolute left-0 right-0 bottom-0 h-10 rounded-b-3xl scroll-hint"></div>
         </div>
       </div>
+      </div>
     </div>
 
     <div data-controls class="shrink-0 pt-4 pb-safe mb-4"></div>`;
@@ -104,6 +109,8 @@ export function mount(root, packId) {
     els = {
       counter: body.querySelector('[data-counter]'),
       progress: body.querySelector('[data-progress]'),
+      sceneWrap: body.querySelector('[data-scene-wrap]'),
+      scene: body.querySelector('[data-scene]'),
       flip: body.querySelector('[data-flip]'),
       front: body.querySelector('[data-front]'),
       backScroll: body.querySelector('[data-back-scroll]'),
@@ -152,7 +159,7 @@ export function mount(root, packId) {
   function setFlipped(next) {
     flipped = next;
     els.flip.classList.toggle('is-flipped', flipped);
-    updateScrollHint();
+    resizeScene();
   }
 
   function toggleFlip() {
@@ -160,11 +167,28 @@ export function mount(root, packId) {
     drawControls();
   }
 
-  // The card is bounded by the layout, so a long back face scrolls internally.
-  // Only advertise that when there's actually something below the fold.
-  function updateScrollHint() {
-    if (!flipped) { els.scrollHint.classList.add('hidden'); return; }
-    const overflows = els.backScroll.scrollHeight > els.backScroll.clientHeight + 4;
+  // Compact while showing the word; grows on flip to fit the details.
+  //
+  // The cap is the wrapper's own laid-out height — the space actually left over
+  // after the header, progress bar and controls have taken theirs. The old
+  // version guessed at `window.innerHeight - 220`, which undercounted the chrome
+  // and disagreed with 100dvh in the Android WebView, so the card outgrew the
+  // screen and pushed the buttons off. Measuring the container instead means the
+  // card physically cannot overflow, whatever the viewport does.
+  function resizeScene() {
+    if (!els) return;
+    const avail = els.sceneWrap.clientHeight;
+    if (!avail) return; // not laid out yet
+    let target = Math.min(BASE_HEIGHT, avail);
+    let overflows = false;
+    if (flipped) {
+      const needed = els.backContent.scrollHeight + 48; // p-6 top + bottom
+      target = Math.min(Math.max(BASE_HEIGHT, needed), avail);
+      overflows = needed > target + 4; // the rest is a scroll away
+    }
+    els.scene.style.height = `${target}px`;
+    // Derived from the target, not measured after: mid-transition the element
+    // still reports its old height.
     els.scrollHint.classList.toggle('hidden', !overflows);
   }
 
@@ -216,4 +240,9 @@ export function mount(root, packId) {
     index++;
     drawWord();
   }
+
+  // Rotating the device changes how much room the card has to grow into.
+  const onResize = () => resizeScene();
+  window.addEventListener('resize', onResize);
+  return () => window.removeEventListener('resize', onResize);
 }
