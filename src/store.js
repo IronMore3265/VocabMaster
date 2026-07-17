@@ -21,6 +21,9 @@ const DEFAULT_SETTINGS = {
   theme: 'system', // 'light' | 'dark' | 'system'
   sound: true, // pronunciation audio playback
   haptics: true, // vibration feedback on answers (Android)
+  dailyGoal: 100, // XP/day that a streak day requires (mirrors profiles.daily_goal)
+  notifications: false, // local practice reminders (opt-in, needs OS permission)
+  reminderHour: 20, // hour of day (0-23) for the daily streak reminder
 };
 
 export function getSettings() {
@@ -53,6 +56,26 @@ export function setRememberedEmail(email) {
 
 export function clearRememberedEmail() {
   save('auth.email', '');
+}
+
+// ---------- streak celebration (once per day) ----------
+// The full-screen fire fires the first time a day clears its XP goal; this stamps
+// the day so re-opening the results screen doesn't replay it.
+export function getStreakCelebratedDay() {
+  return load('streak.celebratedDay', '') || '';
+}
+
+export function setStreakCelebratedDay(dayKey) {
+  save('streak.celebratedDay', dayKey);
+}
+
+// ---------- friend requests seen (tab badge) ----------
+export function getSeenRequestCount() {
+  return load('friends.seenRequests', 0) || 0;
+}
+
+export function setSeenRequestCount(n) {
+  save('friends.seenRequests', n);
 }
 
 // ---------- AI coach first-run explainer ----------

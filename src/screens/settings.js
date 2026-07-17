@@ -1,14 +1,39 @@
 import { supabase } from '../supabase.js';
 import { signOut } from '../auth.js';
 import { clearLocalUserData, getSettings, setSettings } from '../store.js';
-import { deleteAccount } from '../api/account.js';
-import { fetchMyProfile } from '../api/friends.js';
+import { DAILY_GOALS, deleteAccount, updateDailyGoal } from '../api/account.js';
+import { fetchMyProfile, fetchMyStats } from '../api/friends.js';
 import { avatarTile } from '../avatars.js';
+import { cancelAllReminders, ensurePermission, rescheduleReminders } from '../lib/notifications.js';
 import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
 import {
   bindThemeChooser, bindToggles, confirmSheet, esc, icon, showChangelogSheet, showSheet,
   subHeader, themeChooser, toggleRow,
 } from '../ui.js';
+
+const goalBtnCls = (active) =>
+  `flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl border transition-all duration-200 ${
+    active ? 'bg-primary text-on-primary border-transparent' : 'border-outline-variant text-on-surface-variant'
+  }`;
+
+function goalChooser(current) {
+  return `
+  <div class="flex gap-2" data-goal-group>
+    ${DAILY_GOALS.map((g) => `
+    <button type="button" data-goal="${g.value}" class="${goalBtnCls(g.value === current)}">
+      <span class="text-body-md font-medium">${g.label}</span>
+      <span class="font-mono text-label-sm">${g.value} XP</span>
+    </button>`).join('')}
+  </div>`;
+}
+
+function hourSelect(current) {
+  const opts = Array.from({ length: 24 }, (_, h) => {
+    const label = `${String(h).padStart(2, '0')}:00`;
+    return `<option value="${h}" ${h === current ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+  return `<select data-reminder-hour class="bg-surface-container rounded-lg px-3 py-2 text-body-md text-on-surface">${opts}</select>`;
+}
 
 function section(title, inner) {
   return `
@@ -39,6 +64,19 @@ export function render() {
     ${section('Practice', `
       ${toggleRow('Pronunciation audio', 'sound', s.sound, { hint: 'Play Merriam-Webster audio clips' })}
       ${toggleRow('Haptic feedback', 'haptics', s.haptics, { hint: 'Vibrate on correct / wrong answers' })}
+    `)}
+
+    ${section('Daily goal', `
+      <div class="py-3">${goalChooser(s.dailyGoal)}</div>
+      <p class="text-body-sm text-on-surface-variant pb-3">Earn this much XP in a day to keep your streak going.</p>
+    `)}
+
+    ${section('Notifications', `
+      ${toggleRow('Practice reminders', 'notifications', s.notifications, { hint: 'A daily nudge to protect your streak' })}
+      <div data-reminder-time class="${s.notifications ? '' : 'hidden'} border-t border-progress-track flex items-center justify-between py-3.5">
+        <span class="text-body-md text-on-surface">Remind me at</span>
+        ${hourSelect(s.reminderHour)}
+      </div>
     `)}
 
     ${section('About', `
@@ -76,7 +114,72 @@ export function render() {
 
 export function mount(root) {
   bindThemeChooser(root);
-  bindToggles(root, (key, on) => setSettings({ [key]: on }));
+
+  // Recomputes today's state and (re)schedules the local reminders accordingly.
+  async function reschedule() {
+    try {
+      const me = await fetchMyStats();
+      await rescheduleReminders({ streak: me.streak, goalMet: me.todayXp >= me.goal });
+    } catch {
+      await rescheduleReminders({});
+    }
+  }
+
+  const reminderTime = root.querySelector('[data-reminder-time]');
+  bindToggles(root, async (key, on) => {
+    if (key === 'notifications') {
+      if (on) {
+        const granted = await ensurePermission();
+        if (!granted) {
+          // Permission denied at the OS level — flip the switch back.
+          const btn = root.querySelector('[data-toggle="notifications"]');
+          btn?.click();
+          showSheet(`
+            <h2 class="text-headline-sm font-headline text-on-surface mb-2">Notifications are off</h2>
+            <p class="text-body-md text-on-surface-variant mb-4">Enable notifications for VocabMaster in your device settings to get streak reminders.</p>
+            <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
+          return;
+        }
+      }
+      setSettings({ notifications: on });
+      reminderTime?.classList.toggle('hidden', !on);
+      on ? reschedule() : cancelAllReminders();
+      return;
+    }
+    setSettings({ [key]: on });
+  });
+
+  // ---------- daily goal ----------
+  const goalGroup = root.querySelector('[data-goal-group]');
+  goalGroup?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-goal]');
+    if (!btn) return;
+    const value = Number(btn.getAttribute('data-goal'));
+    if (value === getSettings().dailyGoal) return;
+    goalGroup.querySelectorAll('[data-goal]').forEach((b) => {
+      b.className = goalBtnCls(Number(b.getAttribute('data-goal')) === value);
+    });
+    try {
+      await updateDailyGoal(value);
+      reschedule();
+    } catch (err) {
+      // Revert the selection on failure.
+      const cur = getSettings().dailyGoal;
+      goalGroup.querySelectorAll('[data-goal]').forEach((b) => {
+        b.className = goalBtnCls(Number(b.getAttribute('data-goal')) === cur);
+      });
+      showSheet(`
+        <h2 class="text-headline-sm font-headline text-on-surface mb-2">Couldn't save goal</h2>
+        <p class="text-body-md text-on-surface-variant mb-4">${esc(String(err?.message || err))}</p>
+        <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
+    }
+  });
+
+  // ---------- reminder time ----------
+  root.querySelector('[data-reminder-hour]')?.addEventListener('change', (e) => {
+    setSettings({ reminderHour: Number(e.target.value) });
+    reschedule();
+  });
 
   // Account card — a way through to Profile, which owns identity now. Editing
   // the name lives there; two places to rename yourself is one too many.

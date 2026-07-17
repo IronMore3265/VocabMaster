@@ -99,7 +99,7 @@ export function mount(root) {
       statsEl.innerHTML = `
         ${statTile({ iconName: 'local_fire_department', countTo: me.streak, label: 'DAY STREAK' })}
         ${statTile({ iconName: 'workspace_premium', countTo: me.mastered, label: 'MASTERED' })}
-        ${statTile({ iconName: 'target', countTo: Math.round(me.accuracy * 100), suffix: '%', label: 'ACCURACY' })}`;
+        ${statTile({ iconName: 'task_alt', countTo: me.packs, label: 'PACKS DONE' })}`;
       bindCountUps(statsEl);
     } catch {
       statsEl.innerHTML = '';
