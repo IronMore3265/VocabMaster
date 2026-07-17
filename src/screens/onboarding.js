@@ -2,11 +2,12 @@
 // a theme setup slide. Marks the device onboarded and moves on to sign-in.
 import { setOnboarded } from '../store.js';
 import { navigate } from '../router.js';
+import { logoMark } from '../brand.js';
 import { bindThemeChooser, icon, primaryBtn, themeChooser } from '../ui.js';
 
 const SLIDES = [
   {
-    art: badge('menu_book'),
+    art: brandBadge(),
     title: 'Welcome to VocabMaster',
     copy: 'Master the Word Smart 1 & 2 lists — the academic vocabulary that IELTS rewards.',
   },
@@ -32,6 +33,14 @@ function badge(name) {
   return `
   <div class="float w-28 h-28 rounded-[2rem] bg-primary-fixed flex items-center justify-center">
     ${icon(name, 'text-primary text-[56px]')}
+  </div>`;
+}
+
+// The welcome slide is the app introducing itself — it gets the real mark.
+function brandBadge() {
+  return `
+  <div class="float w-28 h-28 rounded-[2rem] bg-primary-fixed flex items-center justify-center">
+    ${logoMark({ size: 62, cls: 'text-primary' })}
   </div>`;
 }
 

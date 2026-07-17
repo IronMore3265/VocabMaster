@@ -3,7 +3,9 @@ import {
   fetchExerciseAccuracy, fetchPackProgress, fetchWeakWords,
 } from '../api/queries.js';
 import { EXERCISE_LABELS } from '../lib/models.js';
-import { appHeader, bottomNav, emptyState, esc, icon, progressBar, spinner, statTile } from '../ui.js';
+import {
+  appHeader, bindCountUps, bottomNav, emptyState, esc, icon, progressBar, spinner, statTile,
+} from '../ui.js';
 
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -12,14 +14,14 @@ function weeklyChart(dates) {
   const days = dailyActivity(dates, 7);
   const weekTotal = days.reduce((s, d) => s + d.count, 0);
   const max = Math.max(1, ...days.map((d) => d.count));
-  const bars = days.map((d) => {
+  const bars = days.map((d, i) => {
     const pct = d.count ? Math.max(10, Math.round((d.count / max) * 100)) : 0;
     const today = d.key === new Date().toDateString();
     return `
     <div class="flex-1 flex flex-col items-center gap-2">
       <div class="w-full flex items-end justify-center" style="height:96px">
-        <div class="w-full max-w-[24px] rounded-t-md ${d.count ? 'bg-primary-fixed-dim' : 'bg-progress-track'}"
-          style="height:${d.count ? pct : 6}%"></div>
+        <div class="grow-y w-full max-w-[24px] rounded-t-md ${d.count ? 'bg-primary-fixed-dim' : 'bg-progress-track'}"
+          style="height:${d.count ? pct : 6}%;animation-delay:${0.05 + i * 0.05}s"></div>
       </div>
       <span class="text-label-sm ${today ? 'text-primary font-semibold' : 'text-on-surface-variant'}">${DOW[d.date.getDay()]}</span>
     </div>`;
@@ -42,7 +44,7 @@ export function render() {
       <h2 class="text-headline-lg font-headline text-on-surface">Progress</h2>
       <p class="text-body-md text-on-surface-variant">Your learning at a glance.</p>
     </div>
-    <div data-body class="flex flex-col gap-4">
+    <div data-body class="flex flex-col gap-4 stagger">
       <div class="flex justify-center py-10">${spinner()}</div>
     </div>
   </main>
@@ -70,12 +72,12 @@ export function mount(root) {
 
     body.innerHTML = `
     <div class="flex gap-3">
-      ${statTile({ iconName: 'local_fire_department', value: String(streak), label: 'DAY STREAK' })}
-      ${statTile({ iconName: 'bolt', value: String(longest), label: 'BEST STREAK' })}
+      ${statTile({ iconName: 'local_fire_department', countTo: streak, label: 'DAY STREAK' })}
+      ${statTile({ iconName: 'bolt', countTo: longest, label: 'BEST STREAK' })}
     </div>
     <div class="flex gap-3">
-      ${statTile({ iconName: 'history', value: String(totalAttempts), label: 'ATTEMPTS' })}
-      ${statTile({ iconName: 'target', value: `${Math.round(overall * 100)}%`, label: 'ACCURACY' })}
+      ${statTile({ iconName: 'history', countTo: totalAttempts, label: 'ATTEMPTS' })}
+      ${statTile({ iconName: 'target', countTo: Math.round(overall * 100), suffix: '%', label: 'ACCURACY' })}
     </div>
 
     ${weeklyChart(dates)}
@@ -118,6 +120,8 @@ export function mount(root) {
           </button>`).join('')}
       </div>`
       : emptyState('sentiment_satisfied', 'No weak words yet', 'Miss a word twice and it shows up here.')}`;
+
+    bindCountUps(body);
   }).catch(() => {
     body.innerHTML = `<p class="text-body-sm text-error text-center py-10">Couldn't load your progress.</p>`;
   });

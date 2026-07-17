@@ -2,11 +2,7 @@
 import { iconSvg } from './icons.js';
 import { getSettings, setSettings } from './store.js';
 import { applyTheme } from './theme.js';
-
-// Re-render the current route (main.js re-renders on hashchange).
-export function rerender() {
-  window.dispatchEvent(new HashChangeEvent('hashchange'));
-}
+import { haptic } from './lib/feedback.js';
 
 export function icon(name, cls = '', solid = false) {
   return iconSvg(name, `${solid ? 'icon-solid' : ''} ${cls}`);
@@ -23,13 +19,13 @@ export function esc(s) {
 // icons sit on the same row, vertically aligned to the centered heading.
 export function appHeader(title = 'VocabMaster') {
   return `
-  <header class="pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track transition-colors">
+  <header class="vt-appbar pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track transition-colors">
     <div class="relative flex items-center h-16 px-5">
       <button data-nav="menu" class="p-1 rounded text-primary active:opacity-70 transition-opacity shrink-0">
         ${icon('menu')}
       </button>
       <h1 class="absolute left-1/2 -translate-x-1/2 max-w-[60%] text-center text-headline-md font-headline text-on-surface truncate">${esc(title)}</h1>
-      <button data-nav="#/settings" class="ml-auto p-1 rounded-full text-on-surface-variant active:opacity-70 transition-opacity shrink-0">
+      <button data-nav="#/settings" class="ml-auto p-1 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">
         ${icon('settings')}
       </button>
     </div>
@@ -39,7 +35,7 @@ export function appHeader(title = 'VocabMaster') {
 // ---------- top app bar: sub-pages ----------
 export function subHeader(title = '', actionsHtml = '') {
   return `
-  <header class="pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track">
+  <header class="vt-appbar pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track">
     <div class="relative flex items-center h-16 px-2">
       <button data-nav="back" class="p-3 rounded-full text-on-surface active:opacity-70 transition-opacity shrink-0">
         ${icon('arrow_back')}
@@ -60,7 +56,7 @@ const TABS = [
 
 export function bottomNav(activeRoute) {
   return `
-  <nav class="pb-safe fixed bottom-0 left-0 w-full z-40 bg-background/95 backdrop-blur border-t border-progress-track">
+  <nav class="vt-bottomnav pb-safe fixed bottom-0 left-0 w-full z-40 bg-background/95 backdrop-blur border-t border-progress-track">
     <div class="flex justify-around items-center h-[68px] px-4">
       ${TABS.map((t) => {
         const active = t.route === activeRoute;
@@ -130,8 +126,18 @@ export function progressBar(ratio, { height = 8, className = '' } = {}) {
   const pct = Math.min(100, Math.max(0, ratio * 100));
   return `
   <div class="w-full rounded-full bg-progress-track overflow-hidden ${className}" style="height:${height}px">
-    <div class="grow-x h-full rounded-full bg-primary-fixed-dim" style="width:${pct}%"></div>
+    <div data-fill class="grow-x progress-fill h-full rounded-full bg-primary-fixed-dim" style="width:${pct}%"></div>
   </div>`;
+}
+
+/**
+ * Retargets a rendered progressBar in place. Re-rendering the markup instead
+ * would restart its grow-x entry animation, so the bar appears to reset on
+ * every step rather than advancing.
+ */
+export function setProgress(scope, ratio) {
+  const fill = scope?.querySelector('[data-fill]');
+  if (fill) fill.style.width = `${Math.min(100, Math.max(0, ratio * 100))}%`;
 }
 
 export function progressRing({ progress = 0, size = 96, stroke = 10, label } = {}) {
@@ -152,13 +158,72 @@ export function progressRing({ progress = 0, size = 96, stroke = 10, label } = {
 }
 
 // ---------- cards / tiles ----------
-export function statTile({ iconName, value, label }) {
+/**
+ * `countTo` (a number) makes the value tick up from zero once mounted — call
+ * bindCountUps() on the container afterwards. Without it, `value` renders as-is.
+ */
+export function statTile({ iconName, value, label, countTo, suffix = '' }) {
+  const animated = typeof countTo === 'number';
+  const attrs = animated ? ` data-count-to="${countTo}" data-suffix="${esc(suffix)}"` : '';
   return `
   <div class="flex-1 bg-surface rounded-lg p-4 flex flex-col gap-1.5 shadow-card">
     ${icon(iconName, 'text-primary text-[22px]')}
-    <span class="font-mono text-[22px] leading-7 text-on-surface">${esc(value)}</span>
+    <span${attrs} class="font-mono text-[22px] leading-7 text-on-surface">${esc(animated ? `0${suffix}` : value)}</span>
     <span class="text-label-sm text-on-surface-variant">${esc(label)}</span>
   </div>`;
+}
+
+const REDUCE_MOTION = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Ticks every [data-count-to] in `scope` from 0 to its target. */
+export function bindCountUps(scope, { duration = 900 } = {}) {
+  const els = [...scope.querySelectorAll('[data-count-to]')];
+  if (!els.length) return;
+  const reduce = REDUCE_MOTION();
+
+  for (const el of els) {
+    const target = Number(el.getAttribute('data-count-to')) || 0;
+    const suffix = el.getAttribute('data-suffix') ?? '';
+    if (reduce || target === 0) {
+      el.textContent = `${target}${suffix}`;
+      continue;
+    }
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      // easeOutCubic: fast then settling, so the number lands rather than stops.
+      const eased = 1 - (1 - t) ** 3;
+      el.textContent = `${Math.round(target * eased)}${suffix}`;
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+
+/**
+ * Entry point to a revision session, for the pack and book screens.
+ * `rev` is a pack_revision row (or an aggregate of them); returns '' when there
+ * is nothing seen yet, since there'd be nothing to revise.
+ */
+export function reviseCard(route, rev) {
+  const seen = Number(rev?.seen ?? 0);
+  if (!rev || seen === 0) return '';
+  const due = Number(rev.due ?? 0);
+  const hint = due > 0
+    ? `${due} word${due === 1 ? '' : 's'} due for review`
+    : `${seen} word${seen === 1 ? '' : 's'} practised · oldest first`;
+  return `
+  <button data-nav="${route}" class="bg-surface rounded-3xl p-5 flex items-center gap-4 shadow-card active:scale-[0.98] transition-transform">
+    <div class="w-11 h-11 rounded-full bg-primary-fixed flex items-center justify-center shrink-0 relative">
+      ${icon('revise', 'text-primary')}
+      ${due > 0 ? '<span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-surface"></span>' : ''}
+    </div>
+    <div class="flex-1 min-w-0 text-left">
+      <p class="text-body-md text-on-surface">Revise</p>
+      <p class="text-body-sm text-on-surface-variant truncate">${esc(hint)}</p>
+    </div>
+    ${icon('chevron_right', 'text-outline-variant shrink-0')}
+  </button>`;
 }
 
 export function spinner(cls = 'text-primary') {
@@ -175,10 +240,112 @@ export function emptyState(iconName, title, hint) {
 }
 
 // ---------- chips ----------
-export function chip(label, { active = false, attrs = '' } = {}) {
+// `tone` colours a chip by meaning (synonym / antonym). Active still wins — a
+// selected chip reads as selected regardless of its category.
+export const CHIP_TONES = {
+  neutral: 'bg-surface-container text-on-surface-variant',
+  positive: 'bg-secondary-container text-on-secondary-container',
+  negative: 'bg-error-container text-on-error-container',
+};
+
+export function chip(label, { active = false, attrs = '', tone = 'neutral' } = {}) {
   return `<button ${attrs} class="rounded-full px-3.5 py-2 text-body-sm active:scale-95 transition-transform ${
-    active ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-surface-container text-on-surface-variant'
+    active ? 'bg-primary-fixed text-on-primary-fixed' : CHIP_TONES[tone] ?? CHIP_TONES.neutral
   }">${esc(label)}</button>`;
+}
+
+// ---------- code input + keypad ----------
+// A fixed-length numeric entry built from buttons and a non-input display, so
+// the Android keyboard never opens over it (and the WebView never resizes under
+// it). Physical keyboards still work — see bindCodeInput.
+export const CODE_LENGTH = 6;
+
+export function codeCells({ length = CODE_LENGTH, label = 'Code' } = {}) {
+  // rounded-md, not -xl: this theme's --radius-xl is 24px, which turns a 46px
+  // cell into an oval.
+  const cells = Array.from({ length }, (_, i) =>
+    `<span data-cell="${i}" class="code-cell flex-1 max-w-[46px] aspect-[3/4] rounded-md border border-outline-variant bg-surface flex items-center justify-center font-mono text-[22px] text-on-surface"></span>`,
+  ).join('');
+  return `
+  <div data-code role="group" aria-label="${esc(label)}" class="flex justify-center gap-2">${cells}</div>`;
+}
+
+export function keypad() {
+  const key = (inner, attrs, extra = '') => `
+    <button type="button" ${attrs} class="h-14 rounded-2xl bg-surface-container text-on-surface font-mono text-[22px] flex items-center justify-center active:scale-95 transition-transform ${extra}">${inner}</button>`;
+  const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    .map((d) => key(String(d), `data-key="${d}" aria-label="${d}"`))
+    .join('');
+  return `
+  <div data-keypad class="grid grid-cols-3 gap-2.5">
+    ${digits}
+    <span></span>
+    ${key('0', 'data-key="0" aria-label="0"')}
+    ${key(icon('backspace', 'text-[22px]'), 'data-key="del" aria-label="Delete"', 'bg-transparent text-on-surface-variant')}
+  </div>`;
+}
+
+/**
+ * Wires a codeCells + keypad pair. `onComplete(code)` fires when the last digit
+ * lands; `onChange(code)` on every edit. Returns { get, clear, shake }.
+ */
+export function bindCodeInput(scope, { length = CODE_LENGTH, onComplete, onChange } = {}) {
+  const wrap = scope.querySelector('[data-code]');
+  const pad = scope.querySelector('[data-keypad]');
+  let value = '';
+
+  const paint = () => {
+    [...wrap.querySelectorAll('[data-cell]')].forEach((cell, i) => {
+      cell.textContent = value[i] ?? '';
+      cell.classList.toggle('border-primary', i < value.length);
+      // The caret marks where the next digit lands.
+      cell.classList.toggle('code-cell-active', i === value.length);
+    });
+    onChange?.(value);
+    if (value.length === length) onComplete?.(value);
+  };
+
+  const push = (d) => {
+    if (value.length >= length) return;
+    value += d;
+    haptic.light();
+    paint();
+  };
+  const pop = () => {
+    if (!value) return;
+    value = value.slice(0, -1);
+    haptic.light();
+    paint();
+  };
+
+  pad?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-key]');
+    if (!btn) return;
+    const k = btn.getAttribute('data-key');
+    k === 'del' ? pop() : push(k);
+  });
+
+  // Physical keyboard (web / attached keyboards) — the on-screen pad is the
+  // primary path, not the only one.
+  const onKeydown = (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (/^[0-9]$/.test(e.key)) { push(e.key); e.preventDefault(); }
+    else if (e.key === 'Backspace') { pop(); e.preventDefault(); }
+  };
+  document.addEventListener('keydown', onKeydown);
+
+  paint();
+  return {
+    get: () => value,
+    clear: () => { value = ''; paint(); },
+    shake: () => {
+      haptic.medium();
+      wrap.classList.remove('shake');
+      void wrap.offsetWidth; // restart the animation
+      wrap.classList.add('shake');
+    },
+    destroy: () => document.removeEventListener('keydown', onKeydown),
+  };
 }
 
 // ---------- modal bottom sheet ----------
@@ -191,7 +358,12 @@ export function closeTopSheet() {
   return true;
 }
 
-export function showSheet(innerHtml) {
+/**
+ * `onClose` runs whenever the sheet is actually removed — including the
+ * backdrop tap and the swipe-to-dismiss path, which never call close(). Use it
+ * to unbind anything the sheet attached outside its own DOM.
+ */
+export function showSheet(innerHtml, { onClose } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'fixed inset-0 z-50 flex items-end justify-center';
   wrap.innerHTML = `
@@ -211,6 +383,7 @@ export function showSheet(innerHtml) {
     wrap.remove();
     const i = openSheets.indexOf(close);
     if (i !== -1) openSheets.splice(i, 1);
+    onClose?.();
   };
   const close = () => {
     if (closed) return;

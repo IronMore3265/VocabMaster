@@ -55,6 +55,12 @@ const MODEL_CANDIDATES = [
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const ITEM_COUNT = 10;
 
+// Session pool: mistake-driven words first, topped up with time-driven ones.
+const WEAK_TARGET = 8;
+const DUE_TARGET = 4;
+// Below this there aren't enough distinct words to build a varied session.
+const POOL_MIN = 4;
+
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -112,11 +118,20 @@ async function resolveModel(apiKey: string): Promise<string> {
 }
 
 // deno-lint-ignore no-explicit-any
-function buildPrompt(words: any[], weakByType: Record<string, number>, wrongCounts: Map<number, number>): string {
+function buildPrompt(
+  words: any[],
+  weakByType: Record<string, number>,
+  wrongCounts: Map<number, number>,
+  staleDays: Map<number, number>,
+): string {
   const wordList = words
     .map((w) => {
       const example = (w.example_sentences ?? [])[0] ?? '';
-      return `- wordId=${w.id} word="${w.word}" pos=${w.part_of_speech ?? '?'} definition="${w.definition ?? ''}" synonyms=[${(w.synonyms ?? []).join(', ')}] antonyms=[${(w.antonyms ?? []).join(', ')}] example="${example}" timesMissed=${wrongCounts.get(w.id) ?? 0}`;
+      const stale = staleDays.get(w.id);
+      // daysSinceReview is only present for words picked for being stale; the
+      // model uses it to tell "keeps getting this wrong" from "hasn't seen it".
+      const staleField = stale === undefined ? '' : ` daysSinceReview=${stale}`;
+      return `- wordId=${w.id} word="${w.word}" pos=${w.part_of_speech ?? '?'} definition="${w.definition ?? ''}" synonyms=[${(w.synonyms ?? []).join(', ')}] antonyms=[${(w.antonyms ?? []).join(', ')}] example="${example}" timesMissed=${wrongCounts.get(w.id) ?? 0}${staleField}`;
     })
     .join('\n');
 
@@ -125,19 +140,19 @@ function buildPrompt(words: any[], weakByType: Record<string, number>, wrongCoun
       .map(([exerciseType, accuracy]) => `${exerciseType}: ${Math.round(accuracy * 100)}% accuracy`)
       .join(', ') || 'no data yet';
 
-  return `You are the AI coach in an IELTS vocabulary app. The student keeps missing the words below. Build ONE mixed practice session of exactly ${ITEM_COUNT} items drawn ONLY from these words (repeat a word with a different question kind if needed).
+  return `You are the AI coach in an IELTS vocabulary app. The words below are ones the student either keeps missing (high timesMissed) or has not reviewed in a while (daysSinceReview). Build ONE mixed practice session of exactly ${ITEM_COUNT} items drawn ONLY from these words (repeat a word with a different question kind if needed).
 
 Question kinds:
 - "mcq_definition": prompt asks which word matches a definition, or what the word means; options are 4 words or 4 short definitions.
 - "fill_blank": prompt is a NEW academic-level sentence with the target word replaced by "_____"; options are 4 words (1 correct + 3 plausible same-part-of-speech distractors from the list or common IELTS words).
 - "syn_ant": ask for a synonym or antonym of the target word (set "mode"); options are 4 single words.
 
-The student's accuracy by exercise kind: ${typeList}. Bias the mix toward the kinds with LOWEST accuracy (at least half the items), and toward words with higher timesMissed.
+The student's accuracy by exercise kind: ${typeList}. Bias the mix toward the kinds with LOWEST accuracy (at least half the items), and toward words with higher timesMissed. Words with a high daysSinceReview are not necessarily hard — they just need refreshing, so prefer recall-style questions for those.
 
 Rules:
 - Each item: exactly 4 options with ids "a","b","c","d"; exactly one correct; correctOptionId must be one of the option ids; distractors must be clearly wrong but tempting.
 - "explanation": one short sentence explaining the correct answer.
-- "focusSummary": 1-2 encouraging sentences naming the patterns you see (e.g. weak verbs, confusing near-synonyms). No markdown.
+- "focusSummary": 1-2 encouraging sentences naming the patterns you see (e.g. weak verbs, confusing near-synonyms). If the session mixes struggling words with ones due for review, say so. No markdown.
 - wordId and word must come verbatim from the list.
 
 Words:
@@ -223,19 +238,41 @@ Deno.serve(async (req) => {
     if (existing) return json({ suggestionId: existing.id, payload: existing.payload, cached: true });
   }
 
-  const { data: weakWords, error: weakError } = await client
-    .from('weak_words')
-    .select('id, pack_id, wrong_count')
-    .limit(12);
+  // A session mixes two different reasons a word needs work:
+  //   weak_words — you keep getting it wrong (mistake-driven)
+  //   due_words  — you haven't seen it in a while (time-driven, from the SRS
+  //                next_due that record_attempt has always maintained)
+  // Weak words alone meant a careful learner with few mistakes could never get
+  // a session, and words learned once then left alone never resurfaced.
+  const [{ data: weakWords, error: weakError }, { data: dueWords, error: dueError }] =
+    await Promise.all([
+      client.from('weak_words').select('id, pack_id, wrong_count').limit(WEAK_TARGET),
+      client
+        .from('due_words')
+        .select('id, pack_id, wrong_count, days_since_review')
+        .limit(DUE_TARGET * 2),
+    ]);
   if (weakError) return json({ error: weakError.message }, 500);
-  if (!weakWords || weakWords.length < 4) {
+  if (dueError) return json({ error: dueError.message }, 500);
+
+  const weak = weakWords ?? [];
+  const weakIds = new Set(weak.map((w) => w.id));
+  // Weak words take the slots first; due words top the session up without
+  // duplicating anything already included.
+  const due = (dueWords ?? []).filter((w) => !weakIds.has(w.id));
+  const pool = [
+    ...weak.slice(0, WEAK_TARGET),
+    ...due.slice(0, Math.max(DUE_TARGET, POOL_MIN - weak.length)),
+  ];
+
+  if (pool.length < POOL_MIN) {
     return json({
       error: 'not_enough_data',
-      message: 'Practice a bit more first — the AI coach needs at least 4 words you struggle with.',
+      message: 'Practice a bit more first — the AI coach builds sessions from words you’ve struggled with or haven’t seen in a while.',
     });
   }
 
-  const wordIds = weakWords.map((w) => w.id);
+  const wordIds = pool.map((w) => w.id);
   const [{ data: words, error: wordsError }, { data: accuracy }] = await Promise.all([
     client
       .from('words')
@@ -249,11 +286,14 @@ Deno.serve(async (req) => {
   for (const row of accuracy ?? []) {
     if (row.exercise_type) weakByType[row.exercise_type] = Number(row.accuracy ?? 0);
   }
-  const wrongCounts = new Map(weakWords.map((w) => [w.id, w.wrong_count ?? 0]));
-  const packByWord = new Map(weakWords.map((w) => [w.id, w.pack_id]));
+  const wrongCounts = new Map(pool.map((w) => [w.id, w.wrong_count ?? 0]));
+  const staleDays = new Map(
+    due.map((w) => [w.id, Number((w as { days_since_review?: number }).days_since_review ?? 0)]),
+  );
+  const packByWord = new Map(pool.map((w) => [w.id, w.pack_id]));
 
   const model = await resolveModel(geminiKey);
-  const prompt = buildPrompt(words, weakByType, wrongCounts);
+  const prompt = buildPrompt(words, weakByType, wrongCounts, staleDays);
 
   let generated: GeneratedExercise | null = null;
   for (let attempt = 0; attempt < 2 && !generated; attempt++) {

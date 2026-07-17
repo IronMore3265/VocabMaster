@@ -1,5 +1,4 @@
 import { supabase } from '../supabase.js';
-import { invalidate } from './queries.js';
 
 /** Raw call to the dictionary-lookup edge function (MW + free-dictionary fallback). */
 export async function lookupWord(word) {
@@ -34,5 +33,4 @@ export async function toggleBookmark({ word, payload, bookmarked }) {
     });
     if (error) throw error;
   }
-  invalidate('bookmarks');
 }

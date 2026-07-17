@@ -2,6 +2,24 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '5.0.0',
+    date: '2026-07-17',
+    notes: [
+      'New app icon — an open book whose pages form a “V” — now used on the launcher, the splash screen, sign-in and both Word Smart book tiles.',
+      'Flashcards no longer push “Again” and “Got it” off the screen when you flip a long card; the card scrolls instead and the buttons stay put.',
+      'The app no longer redraws itself while you are reading — switching tabs, tapping the tab you are already on, and background sign-in refreshes all leave the page alone.',
+      'The flashcard progress bar now slides forward between cards instead of restarting from zero each time.',
+      'Synonyms now show as green pills and antonyms as red ones, in both Flashcards and the Dictionary.',
+      'Added Friends: share your 6-digit code, connect with someone else’s, and compare streaks, mastery and accuracy.',
+      'Added Revise: practise the words you learned longest ago, for a single pack or a whole book.',
+      'The AI Coach now mixes in words you have not seen for a while, not only the ones you get wrong.',
+      'You can now change your display name from Settings.',
+      'The status bar now follows your light or dark theme.',
+      'Deleting your account or signing in as someone else now clears your data straight away, without restarting the app.',
+      'Smoother analytics: stats count up, the weekly chart rises into place, and cards fade in.',
+    ],
+  },
+  {
     version: '4.0.0',
     date: '2026-07-15',
     notes: [

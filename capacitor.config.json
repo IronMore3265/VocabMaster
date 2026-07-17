@@ -2,8 +2,15 @@
   "appId": "com.ironmore.vocabmaster",
   "appName": "VocabMaster",
   "webDir": "dist",
-  "backgroundColor": "#f7f9fb",
+  "backgroundColor": "#f8f9fa",
   "android": {
-    "backgroundColor": "#f7f9fb"
+    "backgroundColor": "#f8f9fa"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#f8f9fa"
+    }
   }
 }

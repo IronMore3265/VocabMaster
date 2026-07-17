@@ -4,6 +4,7 @@ import { forceRender, navigate, startRouter } from './router.js';
 import { getAuthState, onAuthChange, signOut } from './auth.js';
 import { isOnboarded } from './store.js';
 import { applyTheme } from './theme.js';
+import { logoTile } from './brand.js';
 import { closeTopSheet, icon, showSheet } from './ui.js';
 
 import * as onboarding from './screens/onboarding.js';
@@ -21,6 +22,8 @@ import * as analytics from './screens/analytics.js';
 import * as ai from './screens/ai.js';
 import * as results from './screens/results.js';
 import * as settings from './screens/settings.js';
+import * as friends from './screens/friends.js';
+import * as revise from './screens/revise.js';
 
 const routes = [
   { pattern: /^#\/onboarding$/, screen: onboarding },
@@ -38,6 +41,9 @@ const routes = [
   { pattern: /^#\/practice\/ai$/, screen: ai },
   { pattern: /^#\/results\/(\d+)\/(\d+)$/, screen: results },
   { pattern: /^#\/settings$/, screen: settings },
+  { pattern: /^#\/friends$/, screen: friends },
+  // Params: scope ('pack' | 'book') + its id — see revise.mount(root, scope, value).
+  { pattern: /^#\/revise\/(pack|book)\/(\d+)$/, screen: revise },
 ];
 
 const AUTH_ROUTES = /^#\/(sign-in|sign-up)$/;
@@ -79,6 +85,7 @@ function openMenu() {
     ${item('#/dictionary', 'dictionary', 'Dictionary')}
     ${item('#/practice/ai', 'auto_awesome', 'AI Coach')}
     ${item('#/analytics', 'monitoring', 'Analytics')}
+    ${item('#/friends', 'group', 'Friends')}
     ${item('#/settings', 'settings', 'Settings')}
     <button data-signout class="w-full flex items-center gap-4 px-2 py-4 text-on-surface-variant active:bg-surface-container-low transition-colors">
       ${icon('logout', 'text-on-surface-variant')}
@@ -115,9 +122,7 @@ function boot() {
 // Splash until the persisted session is restored.
 document.getElementById('app').innerHTML = `
   <div class="min-h-dvh flex flex-col items-center justify-center gap-4 bg-background">
-    <div class="w-[72px] h-[72px] rounded-3xl bg-primary-fixed flex items-center justify-center">
-      ${icon('menu_book', 'text-primary text-[36px]')}
-    </div>
+    ${logoTile()}
     <span class="text-headline-sm font-headline text-on-surface">VocabMaster</span>
   </div>`;
 

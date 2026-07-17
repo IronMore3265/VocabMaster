@@ -38,7 +38,8 @@ export function mount(root) {
         </div>
         <div class="flex flex-col gap-3">
           ${feature('target', 'Finds the words you keep getting wrong across every exercise.')}
-          ${feature('school', 'Builds a short, personalized quiz focused on exactly those weak spots.')}
+          ${feature('revise', 'Brings back words you learned a while ago, before you forget them.')}
+          ${feature('school', 'Builds a short, personalized quiz from both.')}
           ${feature('trending_up', 'Adapts each day as your accuracy and streak change.')}
         </div>
       </div>
@@ -87,7 +88,7 @@ export function mount(root) {
     if (response?.error === 'not_enough_data') {
       body.innerHTML = centered(`
         ${icon('school', 'text-outline-variant text-[44px]')}
-        <p class="text-body-md text-on-surface-variant">${escapeText(response.message) || 'Practice more first so the AI can find your weak spots.'}</p>`);
+        <p class="text-body-md text-on-surface-variant">${escapeText(response.message) || 'Practice a few packs first so the AI has something to work with.'}</p>`);
       return;
     }
 

@@ -5,7 +5,7 @@ import { supabase } from '../supabase.js';
 // can call freely, and clears keys after a write so progress re-reads fresh.
 const cache = new Map();
 
-function cached(key, fn) {
+export function cached(key, fn) {
   if (!cache.has(key)) {
     cache.set(
       key,
@@ -22,6 +22,16 @@ export function invalidate(...prefixes) {
   for (const k of [...cache.keys()]) {
     if (prefixes.some((p) => k.startsWith(p))) cache.delete(k);
   }
+}
+
+/**
+ * Drops every cached read. Called on sign-out / account deletion / a switch to a
+ * different user — the cache is module state that otherwise outlives the session
+ * and would serve the previous user's progress to the next one.
+ * (invalidate() with no prefixes is a no-op by design, so it can't do this.)
+ */
+export function clearCache() {
+  cache.clear();
 }
 
 // ---------- reads ----------
@@ -81,6 +91,43 @@ export function fetchWeakWords(limit = 10) {
     const { data, error } = await supabase.from('weak_words').select('*').limit(limit);
     if (error) throw error;
     return data;
+  });
+}
+
+/**
+ * Per-pack revision state (seen / due counts, staleness) from the
+ * pack_revision view. Only packs the user has actually started appear.
+ */
+export function fetchPackRevision() {
+  return cached('pack-revision', async () => {
+    const { data, error } = await supabase.from('pack_revision').select('*');
+    if (error) throw error;
+    return data;
+  });
+}
+
+/**
+ * Already-seen words for a revision session, most-stale first (never-due words
+ * sort first so a session always fills). Scoped to a pack or a whole book.
+ *
+ * Reads word_progress with the words row embedded over the word_id FK, so RLS
+ * scopes it to the caller for free — no RPC needed. Returns plain word rows so
+ * the result drops straight into makeFillBlankItems().
+ */
+export function fetchRevisionWords({ packId = null, book = null, limit = 20 } = {}) {
+  const key = `revision-words:${packId ?? 'all'}:${book ?? 'all'}:${limit}`;
+  return cached(key, async () => {
+    let q = supabase
+      .from('word_progress')
+      .select('next_due, last_reviewed, mastery, words!inner(*)')
+      .order('next_due', { ascending: true, nullsFirst: true })
+      .limit(limit);
+    if (packId !== null) q = q.eq('words.pack_id', packId);
+    if (book !== null) q = q.eq('words.book', book);
+
+    const { data, error } = await q;
+    if (error) throw error;
+    return data.map((row) => ({ ...row.words, mastery: row.mastery, next_due: row.next_due }));
   });
 }
 
@@ -171,5 +218,9 @@ export async function recordAttempt({ wordId, packId, type, correct }) {
     console.warn('[recordAttempt] failed', error.message);
     return;
   }
-  invalidate('pack-progress', 'exercise-accuracy', 'weak-words', 'attempt-dates');
+  invalidate(
+    'pack-progress', 'exercise-accuracy', 'weak-words', 'attempt-dates',
+    // An answer moves next_due, so revision state is stale too.
+    'pack-revision', 'revision-words',
+  );
 }

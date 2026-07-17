@@ -1,6 +1,6 @@
-import { fetchPackProgress, fetchPacks, progressRatio } from '../api/queries.js';
+import { fetchPackProgress, fetchPackRevision, fetchPacks, progressRatio } from '../api/queries.js';
 import { BOOKS_META, packTitle } from '../lib/models.js';
-import { esc, icon, progressBar, spinner, subHeader } from '../ui.js';
+import { esc, icon, progressBar, reviseCard, spinner, subHeader } from '../ui.js';
 
 function packCard(pack, progress) {
   return `
@@ -32,6 +32,7 @@ export function render(book) {
       <h2 class="text-headline-lg font-headline text-on-surface">${esc(meta.title)}</h2>
       <p class="text-body-md text-on-surface-variant">${esc(meta.subtitle)}</p>
     </div>
+    <div data-revise class="empty:hidden mb-4"></div>
     <div data-body class="flex flex-col gap-3 stagger">
       <div class="flex justify-center py-10">${spinner()}</div>
     </div>
@@ -43,13 +44,26 @@ export function mount(root, book) {
   const meta = BOOKS_META.find((b) => b.book === bookNumber);
   const body = root.querySelector('[data-body]');
   const heading = root.querySelector('[data-heading] p');
+  const reviseEl = root.querySelector('[data-revise]');
 
-  Promise.all([fetchPacks(), fetchPackProgress().catch(() => [])])
-    .then(([packs, progress]) => {
+  Promise.all([
+    fetchPacks(),
+    fetchPackProgress().catch(() => []),
+    fetchPackRevision().catch(() => []),
+  ])
+    .then(([packs, progress, revision]) => {
       const list = packs.filter((p) => p.book === bookNumber);
       const byPack = new Map(progress.map((row) => [row.pack_id, row]));
       const totalWords = list.reduce((s, p) => s + p.word_count, 0);
       heading.textContent = `${meta.subtitle} · ${totalWords} words in ${list.length} packs`;
+
+      // Revising a book covers everything practised in it so far, across packs.
+      const forBook = revision.filter((r) => r.book === bookNumber);
+      reviseEl.innerHTML = reviseCard(`#/revise/book/${bookNumber}`, {
+        seen: forBook.reduce((s, r) => s + Number(r.seen ?? 0), 0),
+        due: forBook.reduce((s, r) => s + Number(r.due ?? 0), 0),
+      });
+
       body.innerHTML = list.map((p) => packCard(p, progressRatio(byPack.get(p.id)))).join('');
     })
     .catch(() => {

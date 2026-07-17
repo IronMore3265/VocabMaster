@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Overrides the defaults the capacitor library module ships (indigo #3F51B5 /
+  pink #FF4081). App resources win the merge, so these are what AppTheme picks
+  up. Values mirror the "Academic Clarity" tokens in src/style.css.
+
+  These cover the window before the web view paints; applyTheme() in
+  src/theme.js drives the status bar from then on.
+-->
+<resources>
+    <color name="colorPrimary">#2563eb</color>
+    <color name="colorPrimaryDark">#1e40af</color>
+    <color name="colorAccent">#2563eb</color>
+
+    <!-- Mirrors the background token; values-night/ carries the dark one. -->
+    <color name="appBackground">#f8f9fa</color>
+</resources>

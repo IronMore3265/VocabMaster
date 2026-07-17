@@ -1,11 +1,11 @@
 import { supabase } from '../supabase.js';
 import { signOut } from '../auth.js';
-import { getSettings, setSettings } from '../store.js';
-import { deleteAccount } from '../api/account.js';
+import { clearLocalUserData, getSettings, setSettings } from '../store.js';
+import { deleteAccount, DISPLAY_NAME_MAX, updateDisplayName } from '../api/account.js';
 import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
 import { CHANGELOG } from '../lib/changelog.js';
 import {
-  bindThemeChooser, bindToggles, confirmSheet, esc, icon, showSheet,
+  bindThemeChooser, bindToggles, confirmSheet, esc, field, icon, inputCls, showSheet,
   subHeader, themeChooser, toggleRow,
 } from '../ui.js';
 
@@ -32,6 +32,8 @@ export function render() {
   ${subHeader('Settings')}
   <main class="pt-page pb-page-sub px-5 flex flex-col gap-4">
     <div data-account></div>
+
+    ${section('Social', actionRow('group', 'Friends', 'data-nav="#/friends"', icon('chevron_right', 'text-outline-variant')))}
 
     ${section('Appearance', `<div class="py-3">${themeChooser()}</div>`)}
 
@@ -61,6 +63,11 @@ export function render() {
         ${icon('delete', 'text-[18px]')} Delete account
       </button>
     </div>
+
+    <div class="flex flex-col items-center gap-1 mt-4 mb-2 text-center">
+      <p class="text-body-sm text-on-surface-variant">Developed &amp; created by Nabil Fuad Raiyan</p>
+      <p class="font-mono text-label-sm text-on-surface-variant">Copyright © 2026 Nabil Fuad Raiyan. All rights reserved.</p>
+    </div>
   </main>`;
 }
 
@@ -69,20 +76,31 @@ export function mount(root) {
   bindToggles(root, (key, on) => setSettings({ [key]: on }));
 
   // Account card — filled once the user is known.
+  const accountEl = root.querySelector('[data-account]');
   supabase.auth.getUser().then(({ data }) => {
     const email = data.user?.email;
     if (!email) return;
-    const el = root.querySelector('[data-account]');
-    el.innerHTML = `
+    accountEl.innerHTML = `
     <section class="bg-surface rounded-2xl p-5 flex items-center gap-3 shadow-card">
       <div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
         ${icon('user', 'text-primary text-[26px]')}
       </div>
-      <div class="min-w-0">
-        <p class="text-body-md text-on-surface truncate">${esc(data.user.user_metadata?.display_name || 'Signed in')}</p>
+      <div class="min-w-0 flex-1">
+        <p data-display-name class="text-body-md text-on-surface truncate">${esc(data.user.user_metadata?.display_name || 'Signed in')}</p>
         <p class="text-body-sm text-on-surface-variant truncate">${esc(email)}</p>
       </div>
+      <button data-edit-name aria-label="Edit name" class="p-2.5 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">
+        ${icon('edit', 'text-[20px]')}
+      </button>
     </section>`;
+
+    accountEl.querySelector('[data-edit-name]').addEventListener('click', () => {
+      showEditNameSheet(data.user.user_metadata?.display_name || '', (saved) => {
+        // Patch in place — re-rendering the route here would throw away the
+        // scroll position just to change one line of text.
+        accountEl.querySelector('[data-display-name]').textContent = saved;
+      });
+    });
   });
 
   root.querySelector('[data-signout]').addEventListener('click', () => {
@@ -138,10 +156,55 @@ export function mount(root) {
             <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
           return;
         }
-        // Account is gone — drop the local session and return to sign-in.
-        signOut();
+        // The account row is gone, so the server would reject a normal logout —
+        // clear locally. Await it so the router's gate sees a dropped session
+        // rather than racing it.
+        clearLocalUserData();
+        await signOut({ scope: 'local' });
       },
     });
+  });
+}
+
+function showEditNameSheet(current, onSaved) {
+  const { el, close } = showSheet(`
+    <h2 class="text-headline-sm font-headline text-on-surface mb-4">Edit name</h2>
+    ${field('Display name', `<input data-name type="text" maxlength="${DISPLAY_NAME_MAX}" autocomplete="name" placeholder="Your name" class="${inputCls}" value="${esc(current)}" />`)}
+    <p data-name-error class="text-body-sm text-error mt-2 hidden"></p>
+    <div class="flex gap-3 mt-6">
+      <button data-close class="flex-1 py-3 rounded-full border border-outline-variant text-on-surface text-body-sm">Cancel</button>
+      <button data-save class="flex-1 py-3 rounded-full bg-primary text-on-primary text-body-sm">Save</button>
+    </div>`);
+
+  const input = el.querySelector('[data-name]');
+  const errorEl = el.querySelector('[data-name-error]');
+  const saveBtn = el.querySelector('[data-save]');
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  let saving = false;
+  const save = async () => {
+    if (saving) return;
+    saving = true;
+    errorEl.classList.add('hidden');
+    saveBtn.disabled = true;
+    saveBtn.classList.add('opacity-60');
+    try {
+      const saved = await updateDisplayName(input.value);
+      onSaved(saved);
+      close();
+    } catch (err) {
+      errorEl.textContent = String(err?.message || err);
+      errorEl.classList.remove('hidden');
+      saving = false;
+      saveBtn.disabled = false;
+      saveBtn.classList.remove('opacity-60');
+    }
+  };
+
+  saveBtn.addEventListener('click', save);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
   });
 }
 

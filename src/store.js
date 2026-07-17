@@ -81,3 +81,14 @@ export function pushRecentSearch(word) {
 export function clearRecentSearches() {
   save('dictionary.recent', []);
 }
+
+// ---------- account deletion ----------
+// Wipes everything tied to the person, leaving device preferences (theme,
+// sound, haptics, onboarding) alone — those belong to the device, not the
+// account. Deliberately not called on plain sign-out: "Remember me" exists to
+// survive that.
+export function clearLocalUserData() {
+  clearRememberedEmail();
+  save('ai.introSeen', false);
+  save('dictionary.recent', []);
+}

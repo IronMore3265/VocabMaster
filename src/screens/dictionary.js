@@ -129,8 +129,8 @@ export function mount(root) {
                 <span class="text-body-md text-on-surface flex-1">${esc(d)}</span>
               </div>`).join('')}
           </div>`).join('')}
-        ${chipSection('Synonyms', result.synonyms)}
-        ${chipSection('Antonyms', result.antonyms)}
+        ${chipSection('Synonyms', result.synonyms, 'positive')}
+        ${chipSection('Antonyms', result.antonyms, 'negative')}
       </div>`;
     }
 
@@ -158,12 +158,12 @@ export function mount(root) {
       playAudio(e.currentTarget.getAttribute('data-audio')));
   }
 
-  function chipSection(label, words) {
+  function chipSection(label, words, tone = 'neutral') {
     if (!words?.length) return '';
     return `
     <div class="flex flex-col gap-2">
       <span class="text-label-sm uppercase text-on-surface-variant">${label}</span>
-      <div class="flex flex-wrap gap-2">${words.map((w) => chip(w, { attrs: `data-search="${esc(w)}"` })).join('')}</div>
+      <div class="flex flex-wrap gap-2">${words.map((w) => chip(w, { attrs: `data-search="${esc(w)}"`, tone })).join('')}</div>
     </div>`;
   }
 

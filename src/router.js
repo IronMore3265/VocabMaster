@@ -9,20 +9,23 @@ let cleanup = null;
 let prevHash = null;
 const root = () => document.getElementById('app');
 
-export function navigate(hash, { replace = false } = {}) {
+export function navigate(hash, { replace = false, force = false } = {}) {
   if (replace) {
     // Swap the current history entry (used for practice → results, so the
     // results "Done" back-navigates to the pack, not the finished exercise).
     location.replace(`${location.pathname}${location.search}${hash}`);
   } else if (location.hash === hash) {
-    render();
+    // Already here. Re-rendering would rebuild the page and lose scroll/state
+    // just because the user tapped the tab they're on — only do it on request.
+    if (force) render();
   } else {
     location.hash = hash;
   }
 }
 
 // Tab pages sit at depth 0, sub-pages deeper — used to pick a slide direction.
-const TAB_RE = /^#\/(library|dictionary|analytics)$/;
+// Must list every tab in ui.js TABS, or a tab change animates as a drill-down.
+const TAB_RE = /^#\/(library|dictionary|analytics|practice\/ai)$/;
 
 function render() {
   const hash = location.hash || '#/library';

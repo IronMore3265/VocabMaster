@@ -3,13 +3,13 @@ import { fetchPackWords, fetchPacks, recordAttempt } from '../api/queries.js';
 import { navigate } from '../router.js';
 import { haptic, playAudio } from '../lib/feedback.js';
 import { posLabel } from '../lib/models.js';
-import { esc, icon, progressBar, spinner, subHeader } from '../ui.js';
+import { esc, icon, progressBar, setProgress, spinner, subHeader } from '../ui.js';
 
 export function render() {
   return `
   ${subHeader('')}
-  <main class="pt-page px-5 flex flex-col" style="min-height:100dvh">
-    <div data-body class="flex-1 flex flex-col">
+  <main class="pt-page px-5 flex flex-col" style="height:100dvh;overflow:hidden">
+    <div data-body class="flex-1 min-h-0 flex flex-col">
       <div class="flex justify-center py-10">${spinner()}</div>
     </div>
   </main>`;
@@ -24,6 +24,8 @@ export function mount(root, packId) {
   let index = 0;
   let flipped = false;
   let correctCount = 0;
+  // Frame elements, resolved once drawFrame() has run.
+  let els = null;
 
   Promise.all([fetchPacks(), fetchPackWords(id)])
     .then(([packs, w]) => {
@@ -33,6 +35,7 @@ export function mount(root, packId) {
         body.innerHTML = `<p class="text-body-sm text-on-surface-variant text-center py-10">No words in this pack.</p>`;
         return;
       }
+      drawFrame();
       drawWord();
     })
     .catch(() => {
@@ -51,99 +54,122 @@ export function mount(root, packId) {
     if (url) playAudio(url);
   };
 
-  function pillRow(label, items) {
+  function pillRow(label, items, tone) {
     if (!items?.length) return '';
     return `
     <div class="flex flex-col gap-1.5">
       <span class="text-label-sm uppercase text-on-surface-variant">${label}</span>
       <div class="flex flex-wrap gap-1.5">
-        ${items.map((w) => `<span class="rounded-full bg-surface-container text-on-surface px-3 py-1 text-body-sm">${esc(w)}</span>`).join('')}
+        ${items.map((w) => `<span class="rounded-full ${tone} px-3 py-1 text-body-sm">${esc(w)}</span>`).join('')}
       </div>
     </div>`;
   }
 
-  function drawWord() {
-    const word = words[index];
-    const examples = (word.example_sentences ?? []).slice(0, 3);
+  // The frame (header, progress, card shell, controls) is built once and reused.
+  // Rebuilding it per word restarted the progress bar's entry animation and
+  // re-bound every listener on each tap.
+  function drawFrame() {
     body.innerHTML = `
-    <div class="flex flex-col gap-2 mt-1">
+    <div class="flex flex-col gap-2 mt-1 shrink-0">
       <div class="flex justify-between items-center">
         <span class="text-label-sm uppercase text-on-surface-variant">Pack ${pack.pack_number}: ${esc(pack.first_word.toUpperCase())} – ${esc(pack.last_word.toUpperCase())}</span>
-        <span class="font-mono text-label-md text-primary">${index + 1} / ${words.length}</span>
+        <span data-counter class="font-mono text-label-md text-primary"></span>
       </div>
-      ${progressBar((index + 1) / words.length)}
+      <div data-progress>${progressBar(1 / words.length)}</div>
     </div>
 
-    <div class="flip-scene mt-4" data-scene style="height:380px;transition:height 0.4s cubic-bezier(0.22,1,0.36,1)">
+    <div class="flip-scene mt-4 flex-1 min-h-0" data-scene>
       <div class="flip-inner" data-flip>
         <div class="flip-face bg-surface rounded-3xl p-6 shadow-card flex flex-col">
           <div class="flex justify-end">
             <button data-speak class="p-1 text-on-surface-variant active:opacity-70">${icon('volume_up', 'text-[26px]')}</button>
           </div>
-          <div class="flex-1 flex flex-col items-center justify-center gap-2.5">
-            <span class="text-[34px] leading-[42px] font-headline text-primary">${esc(word.word)}</span>
-            ${word.pronunciation ? `<span class="text-body-lg text-on-surface-variant">${esc(word.pronunciation)}</span>` : ''}
-          </div>
+          <div class="flex-1 flex flex-col items-center justify-center gap-2.5 min-h-0" data-front></div>
           <div class="flex justify-center items-center gap-2">
             ${icon('touch_app', 'text-outline text-[18px]')}
             <span class="text-label-sm uppercase text-outline">Tap to flip</span>
           </div>
         </div>
-        <div class="flip-face flip-back bg-surface rounded-3xl p-6 shadow-card overflow-y-auto">
-          <div class="flex flex-col gap-3.5" data-back-content>
-            <span class="self-start bg-primary-fixed text-on-primary-fixed rounded-full px-3 py-1 text-label-sm uppercase">${esc(posLabel(word.part_of_speech))}</span>
-            <p class="text-body-lg text-on-surface">${esc(word.definition ?? '')}</p>
-            ${examples.length ? `
-              <div class="flex flex-col gap-1.5">
-                <span class="text-label-sm uppercase text-on-surface-variant">Example${examples.length > 1 ? 's' : ''}</span>
-                <div class="flex flex-col gap-2">
-                  ${examples.map((ex) => `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-md text-on-surface-variant italic">${esc(ex)}</p></div>`).join('')}
-                </div>
-              </div>` : ''}
-            ${pillRow('Synonyms', word.synonyms)}
-            ${pillRow('Antonyms', word.antonyms)}
-            ${word.notes ? `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-sm text-on-surface-variant">${esc(word.notes)}</p></div>` : ''}
+        <div class="flip-face flip-back bg-surface rounded-3xl shadow-card overflow-hidden">
+          <div data-back-scroll class="h-full overflow-y-auto p-6">
+            <div class="flex flex-col gap-3.5" data-back-content></div>
           </div>
+          <div data-scroll-hint class="hidden pointer-events-none absolute left-0 right-0 bottom-0 h-10 rounded-b-3xl scroll-hint"></div>
         </div>
       </div>
     </div>
 
-    <div data-controls class="mt-auto mb-8 pt-4"></div>`;
+    <div data-controls class="shrink-0 pt-4 pb-safe mb-4"></div>`;
 
-    flipped = false;
-    body.querySelector('[data-flip]').addEventListener('click', (e) => {
+    els = {
+      counter: body.querySelector('[data-counter]'),
+      progress: body.querySelector('[data-progress]'),
+      flip: body.querySelector('[data-flip]'),
+      front: body.querySelector('[data-front]'),
+      backScroll: body.querySelector('[data-back-scroll]'),
+      backContent: body.querySelector('[data-back-content]'),
+      scrollHint: body.querySelector('[data-scroll-hint]'),
+      controls: body.querySelector('[data-controls]'),
+    };
+
+    els.flip.addEventListener('click', (e) => {
       if (e.target.closest('[data-speak]')) return;
       toggleFlip();
     });
-    body.querySelector('[data-speak]').addEventListener('click', () => speak(word.word));
+    body.querySelector('[data-speak]').addEventListener('click', () => speak(words[index].word));
+  }
+
+  function drawWord() {
+    const word = words[index];
+    const examples = (word.example_sentences ?? []).slice(0, 3);
+
+    els.counter.textContent = `${index + 1} / ${words.length}`;
+    setProgress(els.progress, (index + 1) / words.length);
+
+    els.front.innerHTML = `
+      <span class="text-[34px] leading-[42px] font-headline text-primary text-center">${esc(word.word)}</span>
+      ${word.pronunciation ? `<span class="text-body-lg text-on-surface-variant">${esc(word.pronunciation)}</span>` : ''}`;
+
+    els.backContent.innerHTML = `
+      <span class="self-start bg-primary-fixed text-on-primary-fixed rounded-full px-3 py-1 text-label-sm uppercase">${esc(posLabel(word.part_of_speech))}</span>
+      <p class="text-body-lg text-on-surface">${esc(word.definition ?? '')}</p>
+      ${examples.length ? `
+        <div class="flex flex-col gap-1.5">
+          <span class="text-label-sm uppercase text-on-surface-variant">Example${examples.length > 1 ? 's' : ''}</span>
+          <div class="flex flex-col gap-2">
+            ${examples.map((ex) => `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-md text-on-surface-variant italic">${esc(ex)}</p></div>`).join('')}
+          </div>
+        </div>` : ''}
+      ${pillRow('Synonyms', word.synonyms, 'bg-secondary-container text-on-secondary-container')}
+      ${pillRow('Antonyms', word.antonyms, 'bg-error-container text-on-error-container')}
+      ${word.notes ? `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-sm text-on-surface-variant">${esc(word.notes)}</p></div>` : ''}`;
+
+    els.backScroll.scrollTop = 0;
+    setFlipped(false);
     drawControls();
+  }
+
+  function setFlipped(next) {
+    flipped = next;
+    els.flip.classList.toggle('is-flipped', flipped);
+    updateScrollHint();
   }
 
   function toggleFlip() {
-    flipped = !flipped;
-    body.querySelector('[data-flip]').classList.toggle('is-flipped', flipped);
-    resizeScene();
+    setFlipped(!flipped);
     drawControls();
   }
 
-  // Grow the card to fit the (usually taller) back so details show without
-  // scrolling; shrink back to the compact size when showing the word.
-  function resizeScene() {
-    const BASE = 380;
-    const scene = body.querySelector('[data-scene]');
-    if (!scene) return;
-    if (flipped) {
-      const content = scene.querySelector('[data-back-content]');
-      const needed = (content?.scrollHeight ?? 0) + 48; // p-6 top + bottom
-      const max = Math.max(BASE, window.innerHeight - 220); // room for header + controls
-      scene.style.height = `${Math.min(needed, max)}px`;
-    } else {
-      scene.style.height = `${BASE}px`;
-    }
+  // The card is bounded by the layout, so a long back face scrolls internally.
+  // Only advertise that when there's actually something below the fold.
+  function updateScrollHint() {
+    if (!flipped) { els.scrollHint.classList.add('hidden'); return; }
+    const overflows = els.backScroll.scrollHeight > els.backScroll.clientHeight + 4;
+    els.scrollHint.classList.toggle('hidden', !overflows);
   }
 
   function drawControls() {
-    const el = body.querySelector('[data-controls]');
+    const el = els.controls;
     const round = `w-14 h-14 rounded-full bg-surface shadow-card flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40`;
     if (flipped) {
       el.innerHTML = `

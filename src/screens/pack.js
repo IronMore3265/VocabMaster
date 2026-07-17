@@ -1,5 +1,5 @@
-import { fetchPackProgress, fetchPacks, progressRatio } from '../api/queries.js';
-import { esc, icon, progressRing, spinner, subHeader } from '../ui.js';
+import { fetchPackProgress, fetchPackRevision, fetchPacks, progressRatio } from '../api/queries.js';
+import { esc, icon, progressRing, reviseCard, spinner, subHeader } from '../ui.js';
 
 const TILES = [
   { kind: 'flashcards', cls: 'tile-flashcards', route: 'flashcards', title: 'Flashcards', subtitle: 'Review words', ic: 'style' },
@@ -38,11 +38,16 @@ export function mount(root, packId) {
   const id = Number(packId);
   const body = root.querySelector('[data-body]');
 
-  Promise.all([fetchPacks(), fetchPackProgress().catch(() => [])])
-    .then(([packs, progress]) => {
+  Promise.all([
+    fetchPacks(),
+    fetchPackProgress().catch(() => []),
+    fetchPackRevision().catch(() => []),
+  ])
+    .then(([packs, progress, revision]) => {
       const pack = packs.find((p) => p.id === id);
       if (!pack) { body.innerHTML = ''; return; }
       const ratio = progressRatio(progress.find((r) => r.pack_id === id));
+      const rev = revision.find((r) => r.pack_id === id);
       body.innerHTML = `
       <div class="bg-surface rounded-3xl p-6 flex items-center justify-between shadow-card">
         <div class="flex flex-col gap-1.5 flex-1 pr-3">
@@ -51,6 +56,7 @@ export function mount(root, packId) {
         </div>
         ${progressRing({ progress: ratio })}
       </div>
+      ${reviseCard(`#/revise/pack/${id}`, rev)}
       <div class="flex flex-col gap-4">
         ${tile(id, TILES[0], `Review ${pack.word_count} cards`)}
         ${tile(id, TILES[1])}

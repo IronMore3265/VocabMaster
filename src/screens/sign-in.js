@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { clearRememberedEmail, getRememberedEmail, setRememberedEmail } from '../store.js';
-import { bindPasswordPeek, esc, icon, inputCls, passwordField, primaryBtn } from '../ui.js';
+import { logoTile } from '../brand.js';
+import { bindPasswordPeek, esc, inputCls, passwordField, primaryBtn } from '../ui.js';
 
 export function render() {
   const savedEmail = getRememberedEmail();
@@ -8,9 +9,7 @@ export function render() {
   <div class="min-h-dvh bg-background px-5 pt-safe">
     <div class="max-w-md mx-auto flex flex-col gap-4" style="padding-top:72px">
       <div class="flex flex-col items-center gap-2.5 mb-6">
-        <div class="w-[72px] h-[72px] rounded-3xl bg-primary-fixed flex items-center justify-center">
-          ${icon('menu_book', 'text-primary text-[36px]')}
-        </div>
+        ${logoTile()}
         <h1 class="text-headline-lg font-headline text-on-surface">VocabMaster</h1>
         <p class="text-body-md text-on-surface-variant text-center">Sign in to continue your vocabulary journey.</p>
       </div>

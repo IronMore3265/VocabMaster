@@ -4,7 +4,7 @@
 import { recordAttempt } from '../api/queries.js';
 import { navigate } from '../router.js';
 import { haptic } from '../lib/feedback.js';
-import { esc, icon, progressBar } from '../ui.js';
+import { esc, icon, progressBar, setProgress } from '../ui.js';
 
 const optionPalette = {
   correct: { box: 'bg-secondary-fixed border-secondary text-on-surface', ic: 'check_circle', icCls: 'text-secondary' },
@@ -23,6 +23,27 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
   let selectedId = null;
   let correctCount = 0;
 
+  // The header and progress bar are built once. Re-rendering them per draw()
+  // rebuilt the bar's DOM, which replayed its grow-x entry animation on every
+  // answer and every advance — it read as the bar resetting rather than filling.
+  container.innerHTML = `
+    <div class="flex-1 flex flex-col px-5 min-h-0">
+      <div class="mt-2 flex flex-col gap-2 shrink-0">
+        <div class="flex justify-between items-center">
+          <span class="text-label-sm uppercase text-on-surface-variant">${esc(headerLabel)}</span>
+          <span data-counter class="font-mono text-label-md text-primary"></span>
+        </div>
+        <div data-progress>${progressBar(1 / items.length)}</div>
+      </div>
+      <div data-question class="flex-1 overflow-y-auto py-4 flex flex-col gap-4"></div>
+      <div data-footer class="shrink-0"></div>
+    </div>`;
+
+  const counterEl = container.querySelector('[data-counter]');
+  const progressEl = container.querySelector('[data-progress]');
+  const questionEl = container.querySelector('[data-question]');
+  const footerEl = container.querySelector('[data-footer]');
+
   const draw = () => {
     const item = items[index];
     if (!item) return;
@@ -36,52 +57,44 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
       return 'dimmed';
     };
 
-    container.innerHTML = `
-    <div class="flex-1 flex flex-col px-5 min-h-0">
-      <div class="mt-2 flex flex-col gap-2">
-        <div class="flex justify-between items-center">
-          <span class="text-label-sm uppercase text-on-surface-variant">${esc(headerLabel)}</span>
-          <span class="font-mono text-label-md text-primary">${index + 1} / ${items.length}</span>
-        </div>
-        ${progressBar((index + 1) / items.length)}
+    counterEl.textContent = `${index + 1} / ${items.length}`;
+    setProgress(progressEl, (index + 1) / items.length);
+
+    questionEl.innerHTML = `
+      <div class="bg-surface rounded-3xl p-6 min-h-[120px] flex items-center shadow-card">
+        <p class="text-body-lg text-on-surface">${esc(item.prompt)}</p>
       </div>
 
-      <div class="flex-1 overflow-y-auto py-4 flex flex-col gap-4">
-        <div class="bg-surface rounded-3xl p-6 min-h-[120px] flex items-center shadow-card">
-          <p class="text-body-lg text-on-surface">${esc(item.prompt)}</p>
-        </div>
-
-        <div class="flex flex-col gap-2.5" data-options>
-          ${item.options.map((o) => {
-            const st = optionPalette[optionState(o.id)];
-            return `
-            <button data-option="${esc(o.id)}" ${answered ? 'disabled' : ''}
-              class="flex items-center gap-2.5 border-[1.5px] rounded-xl px-4 py-3.5 text-left transition-colors ${st.box}">
-              <span class="flex-1 text-body-md">${esc(o.text)}</span>
-              ${st.ic ? icon(st.ic, `${st.icCls} text-[20px]`) : ''}
-            </button>`;
-          }).join('')}
-        </div>
-
-        ${answered && item.explanation ? `
-          <div class="bg-surface-container-low rounded-xl p-3.5 flex gap-2.5">
-            ${icon(wasCorrect ? 'check_circle' : 'cancel', `${wasCorrect ? 'text-secondary' : 'text-error'} text-[20px] shrink-0 mt-0.5`)}
-            <p class="text-body-sm text-on-surface-variant"><span class="font-medium text-on-surface">${esc(item.word)}:</span> ${esc(item.explanation)}</p>
-          </div>` : ''}
+      <div class="flex flex-col gap-2.5" data-options>
+        ${item.options.map((o) => {
+          const st = optionPalette[optionState(o.id)];
+          return `
+          <button data-option="${esc(o.id)}" ${answered ? 'disabled' : ''}
+            class="flex items-center gap-2.5 border-[1.5px] rounded-xl px-4 py-3.5 text-left transition-colors ${st.box}">
+            <span class="flex-1 text-body-md">${esc(o.text)}</span>
+            ${st.ic ? icon(st.ic, `${st.icCls} text-[20px]`) : ''}
+          </button>`;
+        }).join('')}
       </div>
 
-      ${answered ? `
-        <button data-next class="mb-8 h-14 rounded-full bg-primary text-on-primary text-body-md font-medium flex items-center justify-center active:scale-[0.98] transition-transform">
+      ${answered && item.explanation ? `
+        <div class="bg-surface-container-low rounded-xl p-3.5 flex gap-2.5">
+          ${icon(wasCorrect ? 'check_circle' : 'cancel', `${wasCorrect ? 'text-secondary' : 'text-error'} text-[20px] shrink-0 mt-0.5`)}
+          <p class="text-body-sm text-on-surface-variant"><span class="font-medium text-on-surface">${esc(item.word)}:</span> ${esc(item.explanation)}</p>
+        </div>` : ''}`;
+
+    footerEl.innerHTML = answered
+      ? `<button data-next class="w-full mb-8 h-14 rounded-full bg-primary text-on-primary text-body-md font-medium flex items-center justify-center active:scale-[0.98] transition-transform">
           ${index === items.length - 1 ? 'Finish' : 'Next'}
-        </button>` : '<div class="mb-8"></div>'}
-    </div>`;
+        </button>`
+      : '<div class="mb-8"></div>';
 
     if (!answered) {
-      container.querySelectorAll('[data-option]').forEach((btn) => {
+      questionEl.querySelectorAll('[data-option]').forEach((btn) => {
         btn.addEventListener('click', () => select(btn.getAttribute('data-option')));
       });
     } else {
-      container.querySelector('[data-next]')?.addEventListener('click', next);
+      footerEl.querySelector('[data-next]')?.addEventListener('click', next);
     }
   };
 
@@ -110,6 +123,7 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
     index++;
     selectedId = null;
     draw();
+    questionEl.scrollTop = 0; // new question starts at the top, not mid-scroll
   };
 
   draw();
