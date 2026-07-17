@@ -3,6 +3,9 @@ import { iconSvg } from './icons.js';
 import { getSettings, setSettings } from './store.js';
 import { applyTheme } from './theme.js';
 import { haptic } from './lib/feedback.js';
+import { avatarTile } from './avatars.js';
+import { fetchMyProfile } from './api/friends.js';
+import { CHANGELOG } from './lib/changelog.js';
 
 export function icon(name, cls = '', solid = false) {
   return iconSvg(name, `${solid ? 'icon-solid' : ''} ${cls}`);
@@ -14,10 +17,42 @@ export function esc(s) {
   }[c]));
 }
 
+// ---------- header profile avatar ----------
+// appHeader is a synchronous string builder but the avatar comes from an async
+// read, so the header renders from this snapshot and gets repainted in place
+// once the profile lands. Without the snapshot the avatar would flash back to
+// the initial-letter fallback on every navigation.
+let profileSnapshot = null;
+
+function paintProfileAvatars() {
+  for (const el of document.querySelectorAll('[data-profile-avatar]')) {
+    el.innerHTML = avatarTile(profileSnapshot?.avatar, profileSnapshot?.display_name, { size: 32 });
+  }
+}
+
+/**
+ * Re-reads the profile and repaints every rendered header avatar. Cheap to call
+ * — fetchMyProfile() is cached, so this only hits the network after a write has
+ * invalidated it. Call after changing the name or avatar, and on auth changes:
+ * a signed-out read throws, which clears the snapshot rather than leaving the
+ * previous user's face in the header.
+ */
+export async function refreshProfileAvatar() {
+  try {
+    profileSnapshot = await fetchMyProfile();
+  } catch {
+    profileSnapshot = null;
+  }
+  paintProfileAvatars();
+}
+
 // ---------- top app bar: tab pages ----------
-// The title is absolutely centered so the menu (left) and settings (right)
-// icons sit on the same row, vertically aligned to the centered heading.
+// The title is absolutely centered so the menu (left) and profile (right)
+// controls sit on the same row, vertically aligned to the centered heading.
 export function appHeader(title = 'VocabMaster') {
+  // Covers a cold render that beat the boot-time prime (or followed a failure);
+  // a hit on the cache resolves without a request.
+  if (!profileSnapshot) refreshProfileAvatar();
   return `
   <header class="vt-appbar pt-safe fixed top-0 w-full z-40 bg-background border-b border-progress-track transition-colors">
     <div class="relative flex items-center h-16 px-5">
@@ -25,8 +60,9 @@ export function appHeader(title = 'VocabMaster') {
         ${icon('menu')}
       </button>
       <h1 class="absolute left-1/2 -translate-x-1/2 max-w-[60%] text-center text-headline-md font-headline text-on-surface truncate">${esc(title)}</h1>
-      <button data-nav="#/settings" class="ml-auto p-1 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">
-        ${icon('settings')}
+      <button data-nav="#/profile" data-profile-avatar aria-label="Profile"
+        class="ml-auto rounded-full active:opacity-70 transition-opacity shrink-0">
+        ${avatarTile(profileSnapshot?.avatar, profileSnapshot?.display_name, { size: 32 })}
       </button>
     </div>
   </header>`;
@@ -47,17 +83,20 @@ export function subHeader(title = '', actionsHtml = '') {
 }
 
 // ---------- bottom navigation ----------
+// Adding or removing a tab here must be mirrored in TAB_RE in router.js, or the
+// new tab animates as a drill-down instead of a cross-fade.
 const TABS = [
   { route: '#/library', iconName: 'local_library', label: 'Library' },
   { route: '#/dictionary', iconName: 'dictionary', label: 'Dictionary' },
   { route: '#/practice/ai', iconName: 'auto_awesome', label: 'AI Coach' },
   { route: '#/analytics', iconName: 'monitoring', label: 'Analytics' },
+  { route: '#/friends', iconName: 'group', label: 'Friends' },
 ];
 
 export function bottomNav(activeRoute) {
   return `
   <nav class="vt-bottomnav pb-safe fixed bottom-0 left-0 w-full z-40 bg-background/95 backdrop-blur border-t border-progress-track">
-    <div class="flex justify-around items-center h-[68px] px-4">
+    <div class="flex justify-around items-center h-[68px] px-1">
       ${TABS.map((t) => {
         const active = t.route === activeRoute;
         return `
@@ -65,7 +104,7 @@ export function bottomNav(activeRoute) {
           active ? 'text-primary' : 'text-on-surface-variant'
         }">
           ${icon(t.iconName, active ? 'icon-strong' : '')}
-          <span class="text-[11px] font-medium">${t.label}</span>
+          <span class="text-[10px] font-medium leading-none">${t.label}</span>
           <span class="w-1 h-1 rounded-full ${active ? 'bg-primary' : 'bg-transparent'}"></span>
         </button>`;
       }).join('')}
@@ -437,6 +476,30 @@ export function showSheet(innerHtml, { onClose } = {}) {
   sheet.addEventListener('touchcancel', endDrag);
 
   return { el: wrap, close };
+}
+
+/**
+ * The release notes. Lives here rather than in the Settings screen because the
+ * hamburger menu opens it too, and two copies of this markup would drift.
+ */
+export function showChangelogSheet() {
+  const body = CHANGELOG.map((rel) => `
+    <div class="mb-5">
+      <div class="flex items-baseline gap-2 mb-2">
+        <span class="font-mono text-body-md text-on-surface">v${esc(rel.version)}</span>
+        <span class="text-label-sm text-on-surface-variant">${esc(rel.date)}</span>
+      </div>
+      <ul class="flex flex-col gap-2">
+        ${rel.notes.map((n) => `
+        <li class="flex gap-2.5 text-body-sm text-on-surface-variant">
+          <span class="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+          <span>${esc(n)}</span>
+        </li>`).join('')}
+      </ul>
+    </div>`).join('');
+  showSheet(`
+    <h2 class="text-headline-sm font-headline text-on-surface mb-4">What's new</h2>
+    ${body}`);
 }
 
 export function confirmSheet({ title, message, confirmLabel = 'Confirm', onConfirm }) {

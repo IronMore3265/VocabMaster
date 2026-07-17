@@ -5,7 +5,8 @@ import { getAuthState, onAuthChange, signOut } from './auth.js';
 import { isOnboarded } from './store.js';
 import { applyTheme } from './theme.js';
 import { logoTile } from './brand.js';
-import { closeTopSheet, icon, showSheet } from './ui.js';
+import { closeTopSheet, icon, refreshProfileAvatar, showChangelogSheet, showSheet } from './ui.js';
+import { haptic } from './lib/feedback.js';
 
 import * as onboarding from './screens/onboarding.js';
 import * as signIn from './screens/sign-in.js';
@@ -23,6 +24,7 @@ import * as ai from './screens/ai.js';
 import * as results from './screens/results.js';
 import * as settings from './screens/settings.js';
 import * as friends from './screens/friends.js';
+import * as profile from './screens/profile.js';
 import * as revise from './screens/revise.js';
 
 const routes = [
@@ -42,6 +44,7 @@ const routes = [
   { pattern: /^#\/results\/(\d+)\/(\d+)$/, screen: results },
   { pattern: /^#\/settings$/, screen: settings },
   { pattern: /^#\/friends$/, screen: friends },
+  { pattern: /^#\/profile$/, screen: profile },
   // Params: scope ('pack' | 'book') + its id — see revise.mount(root, scope, value).
   { pattern: /^#\/revise\/(pack|book)\/(\d+)$/, screen: revise },
 ];
@@ -62,6 +65,9 @@ function gate(hash) {
 document.addEventListener('click', (e) => {
   const nav = e.target.closest('[data-nav]');
   if (!nav) return;
+  // The tab bar is the one place a tap changes the whole page from a fixed
+  // control, so it gets a nudge. Every other [data-nav] is in-page and doesn't.
+  if (nav.closest('.vt-bottomnav')) haptic.light();
   const target = nav.getAttribute('data-nav');
   if (target === 'back') {
     if (history.length > 1) history.back();
@@ -73,25 +79,28 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Only what the tab bar can't reach. This used to list every tab as well, which
+// made four of its six rows a second copy of the bar directly beneath it.
 function openMenu() {
-  const item = (route, iconName, label, close = true) => `
-    <button data-nav="${route}" ${close ? 'data-close' : ''} class="w-full flex items-center gap-4 px-2 py-4 border-b border-progress-track text-on-surface active:bg-surface-container-low transition-colors">
+  const item = (attrs, iconName, label) => `
+    <button ${attrs} data-close class="w-full flex items-center gap-4 px-2 py-4 border-b border-progress-track text-on-surface active:bg-surface-container-low transition-colors">
       ${icon(iconName, 'text-primary')}
       <span class="text-body-md">${label}</span>
     </button>`;
   const { el, close } = showSheet(`
     <h2 class="text-headline-sm font-headline text-on-surface mb-4">VocabMaster</h2>
-    ${item('#/library', 'local_library', 'Library')}
-    ${item('#/dictionary', 'dictionary', 'Dictionary')}
-    ${item('#/practice/ai', 'auto_awesome', 'AI Coach')}
-    ${item('#/analytics', 'monitoring', 'Analytics')}
-    ${item('#/friends', 'group', 'Friends')}
-    ${item('#/settings', 'settings', 'Settings')}
+    ${item('data-nav="#/profile"', 'user', 'Profile')}
+    ${item('data-nav="#/settings"', 'settings', 'Settings')}
+    ${item('data-changelog', 'changelog', "What's new")}
     <button data-signout class="w-full flex items-center gap-4 px-2 py-4 text-on-surface-variant active:bg-surface-container-low transition-colors">
       ${icon('logout', 'text-on-surface-variant')}
       <span class="text-body-md">Sign out</span>
     </button>
   `);
+  // Opened after this sheet closes, so the changelog isn't stacked on top of it.
+  el.querySelector('[data-changelog]').addEventListener('click', () => {
+    setTimeout(showChangelogSheet, 260);
+  });
   el.querySelector('[data-signout]').addEventListener('click', () => { close(); signOut(); });
 }
 
@@ -127,6 +136,9 @@ document.getElementById('app').innerHTML = `
   </div>`;
 
 onAuthChange(() => {
+  // Whoever is signed in now owns the header avatar — including nobody, which
+  // clears it rather than leaving the previous user's face there.
+  refreshProfileAvatar();
   if (!started) boot();
   else forceRender();
 });

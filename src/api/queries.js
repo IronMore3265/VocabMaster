@@ -1,5 +1,20 @@
 import { supabase } from '../supabase.js';
 
+/**
+ * The device's IANA timezone, for RPCs that bucket timestamps into days.
+ * computeStreak() below buckets device-local, so any streak the server computes
+ * has to be told which zone that is or the two disagree by a day. An IANA name
+ * rather than an offset: an offset applied to historical rows mis-buckets
+ * everything on the far side of a DST change.
+ */
+export const DEVICE_TZ = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC'; // ancient WebView — the RPC defaults to UTC anyway
+  }
+})();
+
 // ---------- tiny promise cache ----------
 // Replaces react-query: memoises in-flight/resolved promises by key so screens
 // can call freely, and clears keys after a write so progress re-reads fresh.
@@ -222,5 +237,8 @@ export async function recordAttempt({ wordId, packId, type, correct }) {
     'pack-progress', 'exercise-accuracy', 'weak-words', 'attempt-dates',
     // An answer moves next_due, so revision state is stale too.
     'pack-revision', 'revision-words',
+    // Practising today can complete a mutual day, so every pair streak may move.
+    // Not 'friends:stats:' — that reports the friend's numbers, not yours.
+    'friends:mutual',
   );
 }

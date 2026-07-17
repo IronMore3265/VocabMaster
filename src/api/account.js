@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js';
+import { AVATAR_IDS } from '../avatars.js';
 import { invalidate } from './queries.js';
 
 /**
@@ -40,4 +41,31 @@ export async function updateDisplayName(name) {
   }
   invalidate('friends');
   return trimmed;
+}
+
+/**
+ * Sets the signed-in user's avatar to an id from the set in src/avatars.js.
+ *
+ * Writes only the profiles row — deliberately NOT the JWT metadata that
+ * updateDisplayName() also writes. The name dual-writes because two stores
+ * already hold it (sign-up seeds the metadata copy, Settings reads it), so that
+ * helper is patching a split it inherited. Avatar has no such split: nothing
+ * seeds one at signup and nothing reads one from the JWT, so a second copy would
+ * create the drift it is meant to prevent. Own-avatar reads go through
+ * fetchMyProfile(), which fetches this row anyway.
+ */
+export async function updateAvatar(id) {
+  const avatar = String(id ?? '').trim();
+  if (!AVATAR_IDS.includes(avatar)) throw new Error('Pick an avatar from the list.');
+
+  const { data: userRes, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userRes.user?.id;
+  if (!userId) throw new Error('Not signed in.');
+
+  const { error } = await supabase.from('profiles').update({ avatar }).eq('id', userId);
+  if (error) throw error;
+
+  invalidate('friends');
+  return avatar;
 }

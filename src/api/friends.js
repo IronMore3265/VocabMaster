@@ -4,22 +4,32 @@
 // because they hardcode auth.uid().
 import { supabase } from '../supabase.js';
 import {
-  cached, computeStreak, fetchAttemptDates, fetchExerciseAccuracy, fetchPackProgress, invalidate,
+  DEVICE_TZ, cached, computeStreak, fetchAttemptDates, fetchExerciseAccuracy, fetchPackProgress,
+  invalidate,
 } from './queries.js';
 
-/** The signed-in user's own 6-digit code. */
-export function fetchMyCode() {
-  return cached('friends:code', async () => {
+/**
+ * The signed-in user's own profile row. The code, the name and the avatar all
+ * live here, so one read serves all three — there is no JWT copy of the avatar
+ * to keep in sync (see updateAvatar in api/account.js).
+ */
+export function fetchMyProfile() {
+  return cached('friends:profile', async () => {
     const { data: userRes } = await supabase.auth.getUser();
     if (!userRes.user) throw new Error('Not signed in');
     const { data, error } = await supabase
       .from('profiles')
-      .select('friend_code')
+      .select('id, display_name, avatar, friend_code')
       .eq('id', userRes.user.id)
       .single();
     if (error) throw error;
-    return data.friend_code;
+    return data;
   });
+}
+
+/** The signed-in user's own 6-digit code. */
+export async function fetchMyCode() {
+  return (await fetchMyProfile()).friend_code;
 }
 
 /**
@@ -45,14 +55,15 @@ export function fetchFriends() {
     const ids = data.map((r) => r.friend_id);
     const { data: profiles, error: pErr } = await supabase
       .from('profiles')
-      .select('id, display_name')
+      .select('id, display_name, avatar')
       .in('id', ids);
     if (pErr) throw pErr;
-    const nameOf = new Map(profiles.map((p) => [p.id, p.display_name]));
+    const byId = new Map(profiles.map((p) => [p.id, p]));
 
     const rows = data.map((r) => ({
       id: r.friend_id,
-      name: nameOf.get(r.friend_id) || 'VocabMaster user',
+      name: byId.get(r.friend_id)?.display_name || 'VocabMaster user',
+      avatar: byId.get(r.friend_id)?.avatar ?? null,
       status: r.status,
       direction: r.direction,
     }));
@@ -64,10 +75,32 @@ export function fetchFriends() {
   });
 }
 
+/**
+ * The mutual streak — consecutive days both you and the friend practised — for
+ * every accepted friend at once. One RPC rather than one per row: the Friends
+ * tab renders a list. Friends with no shared days come back as 0, so callers can
+ * index the Map without a missing-key case.
+ */
+export function fetchMutualStreaks() {
+  return cached('friends:mutual', async () => {
+    const { data, error } = await supabase.rpc('mutual_streaks', { p_tz: DEVICE_TZ });
+    if (error) throw error;
+    return new Map((data ?? []).map((r) => [
+      r.out_friend_id,
+      { streak: Number(r.out_streak ?? 0), lastMutualDay: r.out_last_mutual_day },
+    ]));
+  });
+}
+
 /** Headline stats for one accepted friend. The RPC re-checks the friendship. */
 export function fetchFriendStats(friendId) {
   return cached(`friends:stats:${friendId}`, async () => {
-    const { data, error } = await supabase.rpc('friend_stats', { p_friend_id: friendId });
+    const { data, error } = await supabase.rpc('friend_stats', {
+      p_friend_id: friendId,
+      // Same zone computeStreak() uses, so the compare sheet isn't putting a
+      // device-local streak next to a UTC one.
+      p_tz: DEVICE_TZ,
+    });
     if (error) throw error;
     const row = data?.[0];
     if (!row) throw new Error('No stats available');

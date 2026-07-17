@@ -25,7 +25,7 @@ export function navigate(hash, { replace = false, force = false } = {}) {
 
 // Tab pages sit at depth 0, sub-pages deeper — used to pick a slide direction.
 // Must list every tab in ui.js TABS, or a tab change animates as a drill-down.
-const TAB_RE = /^#\/(library|dictionary|analytics|practice\/ai)$/;
+const TAB_RE = /^#\/(library|dictionary|analytics|practice\/ai|friends)$/;
 
 function render() {
   const hash = location.hash || '#/library';

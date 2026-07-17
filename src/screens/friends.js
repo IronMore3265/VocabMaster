@@ -1,21 +1,23 @@
 import {
-  acceptFriend, addFriendByCode, fetchFriends, fetchFriendStats, fetchMyCode, fetchMyStats,
-  removeFriend,
+  acceptFriend, addFriendByCode, fetchFriends, fetchFriendStats, fetchMutualStreaks, fetchMyCode,
+  fetchMyStats, removeFriend,
 } from '../api/friends.js';
+import { avatarTile } from '../avatars.js';
 import { haptic } from '../lib/feedback.js';
 import {
-  bindCodeInput, codeCells, confirmSheet, emptyState, esc, icon, keypad, showSheet, spinner,
-  subHeader,
+  appHeader, bindCodeInput, bottomNav, codeCells, confirmSheet, emptyState, esc, icon, keypad,
+  showSheet, spinner,
 } from '../ui.js';
 
 export function render() {
   return `
-  ${subHeader('Friends')}
-  <main class="pt-page pb-page-sub px-5">
+  ${appHeader('Friends')}
+  <main class="pt-page pb-page px-5">
     <div data-body class="flex flex-col gap-4">
       <div class="flex justify-center py-10">${spinner()}</div>
     </div>
-  </main>`;
+  </main>
+  ${bottomNav('#/friends')}`;
 }
 
 export function mount(root) {
@@ -23,8 +25,11 @@ export function mount(root) {
   let disposeSheet = null;
 
   function draw() {
-    Promise.all([fetchMyCode(), fetchFriends()])
-      .then(([code, { accepted, incoming, outgoing }]) => {
+    // The streak read is allowed to fail on its own: the catch below renders
+    // "Couldn't load your friends" for any rejection, and a streak outage should
+    // not cost you the list, your code, or the ability to add someone.
+    Promise.all([fetchMyCode(), fetchFriends(), fetchMutualStreaks().catch(() => new Map())])
+      .then(([code, { accepted, incoming, outgoing }, streaks]) => {
         body.innerHTML = `
         ${myCodeCard(code)}
 
@@ -34,7 +39,7 @@ export function mount(root) {
 
         ${incoming.length ? section('Requests', incoming.map(requestRow).join('')) : ''}
         ${accepted.length
-          ? section('Your friends', accepted.map(friendRow).join(''))
+          ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id)?.streak ?? 0)).join(''))
           : emptyState('group', 'No friends yet', 'Share your code, or add someone else’s\nto compare progress.')}
         ${outgoing.length ? section('Waiting to be accepted', outgoing.map(pendingRow).join('')) : ''}`;
 
@@ -129,9 +134,14 @@ export function mount(root) {
       <div data-compare-body class="flex justify-center py-8">${spinner()}</div>`);
     const target = el.querySelector('[data-compare-body]');
     try {
-      const [me, them] = await Promise.all([fetchMyStats(), fetchFriendStats(friendId)]);
+      const [me, them, streaks] = await Promise.all([
+        fetchMyStats(),
+        fetchFriendStats(friendId),
+        fetchMutualStreaks().catch(() => new Map()),
+      ]);
       target.className = '';
-      target.innerHTML = compareTable(me, them);
+      target.innerHTML = mutualBanner(streaks.get(friendId)?.streak ?? 0, them.name)
+        + compareTable(me, them);
     } catch (err) {
       target.className = '';
       target.innerHTML = `<p class="text-body-sm text-error text-center py-6">${esc(String(err?.message || err))}</p>`;
@@ -168,18 +178,28 @@ function myCodeCard(code) {
   </section>`;
 }
 
-function avatar(name) {
-  const initial = (name || '?').trim().charAt(0).toUpperCase();
+const avatar = (f) => avatarTile(f.avatar, f.name, { size: 40 });
+
+/**
+ * The mutual streak: days in a row you and this friend BOTH practised. Hidden at
+ * zero — a cold flame on every row would make the live ones invisible.
+ */
+function streakBadge(days) {
+  if (!days) return '';
   return `
-  <div class="w-10 h-10 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-headline text-[16px] shrink-0">${esc(initial)}</div>`;
+  <span class="flex items-center gap-1 shrink-0 rounded-full bg-primary-fixed px-2 py-0.5" title="${days} day${days === 1 ? '' : 's'} you both practised">
+    ${icon('local_fire_department', 'text-primary text-[14px]')}
+    <span class="font-mono text-[13px] leading-none text-on-primary-fixed">${days}</span>
+  </span>`;
 }
 
-function friendRow(f) {
+function friendRow(f, streak = 0) {
   return `
   <div class="flex items-center gap-3 py-3 border-b border-progress-track last:border-0">
     <button data-compare="${esc(f.id)}" class="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70 transition-opacity">
-      ${avatar(f.name)}
+      ${avatar(f)}
       <span class="text-body-md text-on-surface truncate flex-1">${esc(f.name)}</span>
+      ${streakBadge(streak)}
       ${icon('chevron_right', 'text-outline-variant shrink-0')}
     </button>
     <button data-remove="${esc(f.id)}" aria-label="Remove ${esc(f.name)}" class="p-2 rounded-full text-on-surface-variant active:opacity-70 transition-opacity shrink-0">
@@ -191,7 +211,7 @@ function friendRow(f) {
 function requestRow(f) {
   return `
   <div class="flex items-center gap-3 py-3 border-b border-progress-track last:border-0">
-    ${avatar(f.name)}
+    ${avatar(f)}
     <div class="flex-1 min-w-0">
       <p class="text-body-md text-on-surface truncate">${esc(f.name)}</p>
       <p class="text-body-sm text-on-surface-variant">wants to connect</p>
@@ -206,11 +226,38 @@ function requestRow(f) {
 function pendingRow(f) {
   return `
   <div class="flex items-center gap-3 py-3 border-b border-progress-track last:border-0">
-    ${avatar(f.name)}
+    ${avatar(f)}
     <span class="text-body-md text-on-surface-variant truncate flex-1">${esc(f.name)}</span>
     <button data-remove="${esc(f.id)}" aria-label="Cancel request" class="p-2 rounded-full text-on-surface-variant active:opacity-70 transition-opacity shrink-0">
       ${icon('close', 'text-[18px]')}
     </button>
+  </div>`;
+}
+
+/**
+ * The mutual streak belongs to the pair, so it sits above the table rather than
+ * in it — every row below is "yours vs theirs", and this number is neither.
+ * At zero it's an invitation instead of a score.
+ */
+function mutualBanner(days, name) {
+  const live = days > 0;
+  return `
+  <div class="flex items-center gap-3 rounded-2xl p-4 mb-4 ${live ? 'bg-primary-fixed' : 'bg-surface-container'}">
+    <div class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center ${live ? 'bg-surface' : 'bg-surface-container-high'}">
+      ${icon('local_fire_department', live ? 'text-primary text-[22px]' : 'text-outline text-[22px]')}
+    </div>
+    <div class="min-w-0">
+      <p class="text-body-md ${live ? 'text-on-primary-fixed' : 'text-on-surface'}">
+        ${live
+          ? `<span class="font-mono">${days}</span> day${days === 1 ? '' : 's'} together`
+          : 'No streak yet'}
+      </p>
+      <p class="text-body-sm line-clamp-2 ${live ? 'text-on-primary-fixed opacity-80' : 'text-on-surface-variant'}">
+        ${live
+          ? 'Both practise today to keep it.'
+          : `Practise on the same day as ${esc(name)} to start one.`}
+      </p>
+    </div>
   </div>`;
 }
 

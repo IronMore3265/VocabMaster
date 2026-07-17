@@ -2,6 +2,21 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '5.5.0',
+    date: '2026-07-17',
+    notes: [
+      'Fixed haptic feedback, which never actually worked on Android — the app was asking the phone to vibrate without permission to do so, and the request was being silently ignored.',
+      'Friends is now a tab, so it sits alongside Library, Dictionary, AI Coach and Analytics instead of being buried in the menu.',
+      'Added friend streaks: practise on the same day as a friend to start one, and keep it alive by both practising before midnight.',
+      'Added a Profile page where you can change your display name and pick an avatar.',
+      'Added 12 avatars to choose from — your friends see yours next to your name.',
+      'The header now shows your avatar instead of a settings gear; Settings moved inside Profile.',
+      'The menu no longer repeats the tabs sitting right below it — it now has Profile, Settings, What’s new and Sign out.',
+      'The tour now animates each feature as it introduces it, has a slide for Friends, and can be swiped through.',
+      'A friend’s streak is now counted in your timezone rather than UTC, so it agrees with the streak on your own Analytics tab.',
+    ],
+  },
+  {
     version: '5.0.0',
     date: '2026-07-17',
     notes: [

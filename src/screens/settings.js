@@ -1,11 +1,12 @@
 import { supabase } from '../supabase.js';
 import { signOut } from '../auth.js';
 import { clearLocalUserData, getSettings, setSettings } from '../store.js';
-import { deleteAccount, DISPLAY_NAME_MAX, updateDisplayName } from '../api/account.js';
+import { deleteAccount } from '../api/account.js';
+import { fetchMyProfile } from '../api/friends.js';
+import { avatarTile } from '../avatars.js';
 import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
-import { CHANGELOG } from '../lib/changelog.js';
 import {
-  bindThemeChooser, bindToggles, confirmSheet, esc, field, icon, inputCls, showSheet,
+  bindThemeChooser, bindToggles, confirmSheet, esc, icon, showChangelogSheet, showSheet,
   subHeader, themeChooser, toggleRow,
 } from '../ui.js';
 
@@ -32,8 +33,6 @@ export function render() {
   ${subHeader('Settings')}
   <main class="pt-page pb-page-sub px-5 flex flex-col gap-4">
     <div data-account></div>
-
-    ${section('Social', actionRow('group', 'Friends', 'data-nav="#/friends"', icon('chevron_right', 'text-outline-variant')))}
 
     ${section('Appearance', `<div class="py-3">${themeChooser()}</div>`)}
 
@@ -65,8 +64,12 @@ export function render() {
     </div>
 
     <div class="flex flex-col items-center gap-1 mt-4 mb-2 text-center">
-      <p class="text-body-sm text-on-surface-variant">Developed &amp; created by Nabil Fuad Raiyan</p>
-      <p class="font-mono text-label-sm text-on-surface-variant">Copyright © 2026 Nabil Fuad Raiyan. All rights reserved.</p>
+      <p class="text-body-sm text-on-surface-variant">
+        Developed &amp; created by <strong class="font-medium text-on-surface">Nabil Fuad Raiyan</strong>
+      </p>
+      <p class="font-mono text-label-sm text-on-surface-variant">
+        <span class="text-[18px] align-middle leading-none">©</span> 2026 Nabil Fuad Raiyan. All rights reserved.
+      </p>
     </div>
   </main>`;
 }
@@ -75,33 +78,24 @@ export function mount(root) {
   bindThemeChooser(root);
   bindToggles(root, (key, on) => setSettings({ [key]: on }));
 
-  // Account card — filled once the user is known.
+  // Account card — a way through to Profile, which owns identity now. Editing
+  // the name lives there; two places to rename yourself is one too many.
+  // Reads the profiles row rather than the JWT so the name and avatar come from
+  // one store (see updateAvatar in api/account.js).
   const accountEl = root.querySelector('[data-account]');
-  supabase.auth.getUser().then(({ data }) => {
-    const email = data.user?.email;
+  Promise.all([fetchMyProfile(), supabase.auth.getUser()]).then(([profile, userRes]) => {
+    const email = userRes.data.user?.email;
     if (!email) return;
     accountEl.innerHTML = `
-    <section class="bg-surface rounded-2xl p-5 flex items-center gap-3 shadow-card">
-      <div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
-        ${icon('user', 'text-primary text-[26px]')}
-      </div>
+    <button data-nav="#/profile" class="w-full bg-surface rounded-2xl p-5 flex items-center gap-3 shadow-card text-left active:opacity-70 transition-opacity">
+      ${avatarTile(profile.avatar, profile.display_name, { size: 48 })}
       <div class="min-w-0 flex-1">
-        <p data-display-name class="text-body-md text-on-surface truncate">${esc(data.user.user_metadata?.display_name || 'Signed in')}</p>
+        <p class="text-body-md text-on-surface truncate">${esc(profile.display_name || 'Signed in')}</p>
         <p class="text-body-sm text-on-surface-variant truncate">${esc(email)}</p>
       </div>
-      <button data-edit-name aria-label="Edit name" class="p-2.5 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">
-        ${icon('edit', 'text-[20px]')}
-      </button>
-    </section>`;
-
-    accountEl.querySelector('[data-edit-name]').addEventListener('click', () => {
-      showEditNameSheet(data.user.user_metadata?.display_name || '', (saved) => {
-        // Patch in place — re-rendering the route here would throw away the
-        // scroll position just to change one line of text.
-        accountEl.querySelector('[data-display-name]').textContent = saved;
-      });
-    });
-  });
+      ${icon('chevron_right', 'text-outline-variant shrink-0')}
+    </button>`;
+  }).catch(() => { /* offline — the rest of Settings still works */ });
 
   root.querySelector('[data-signout]').addEventListener('click', () => {
     confirmSheet({
@@ -166,48 +160,6 @@ export function mount(root) {
   });
 }
 
-function showEditNameSheet(current, onSaved) {
-  const { el, close } = showSheet(`
-    <h2 class="text-headline-sm font-headline text-on-surface mb-4">Edit name</h2>
-    ${field('Display name', `<input data-name type="text" maxlength="${DISPLAY_NAME_MAX}" autocomplete="name" placeholder="Your name" class="${inputCls}" value="${esc(current)}" />`)}
-    <p data-name-error class="text-body-sm text-error mt-2 hidden"></p>
-    <div class="flex gap-3 mt-6">
-      <button data-close class="flex-1 py-3 rounded-full border border-outline-variant text-on-surface text-body-sm">Cancel</button>
-      <button data-save class="flex-1 py-3 rounded-full bg-primary text-on-primary text-body-sm">Save</button>
-    </div>`);
-
-  const input = el.querySelector('[data-name]');
-  const errorEl = el.querySelector('[data-name-error]');
-  const saveBtn = el.querySelector('[data-save]');
-  input.focus();
-  input.setSelectionRange(input.value.length, input.value.length);
-
-  let saving = false;
-  const save = async () => {
-    if (saving) return;
-    saving = true;
-    errorEl.classList.add('hidden');
-    saveBtn.disabled = true;
-    saveBtn.classList.add('opacity-60');
-    try {
-      const saved = await updateDisplayName(input.value);
-      onSaved(saved);
-      close();
-    } catch (err) {
-      errorEl.textContent = String(err?.message || err);
-      errorEl.classList.remove('hidden');
-      saving = false;
-      saveBtn.disabled = false;
-      saveBtn.classList.remove('opacity-60');
-    }
-  };
-
-  saveBtn.addEventListener('click', save);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); save(); }
-  });
-}
-
 function showUpdateSheet(info) {
   const inApp = canInstallInApp();
   const { el, close } = showSheet(`
@@ -257,22 +209,3 @@ function showUpdateSheet(info) {
   });
 }
 
-function showChangelogSheet() {
-  const body = CHANGELOG.map((rel) => `
-    <div class="mb-5">
-      <div class="flex items-baseline gap-2 mb-2">
-        <span class="font-mono text-body-md text-on-surface">v${esc(rel.version)}</span>
-        <span class="text-label-sm text-on-surface-variant">${esc(rel.date)}</span>
-      </div>
-      <ul class="flex flex-col gap-2">
-        ${rel.notes.map((n) => `
-        <li class="flex gap-2.5 text-body-sm text-on-surface-variant">
-          <span class="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
-          <span>${esc(n)}</span>
-        </li>`).join('')}
-      </ul>
-    </div>`).join('');
-  showSheet(`
-    <h2 class="text-headline-sm font-headline text-on-surface mb-4">What's new</h2>
-    ${body}`);
-}

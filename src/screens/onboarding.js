@@ -1,29 +1,40 @@
-// First-launch tour (inspired by ReFocus onboarding): a few feature slides, then
-// a theme setup slide. Marks the device onboarded and moves on to sign-in.
+// First-launch tour: feature slides, then a theme setup slide. Marks the device
+// onboarded and moves on to sign-in.
+//
+// Each slide's art demonstrates its feature rather than badging it — the tiles
+// deal out, the coach draws in weak words, the friends slide lights a shared
+// streak. The motion is all CSS (see the Onboarding block in style.css), so the
+// global prefers-reduced-motion rule flattens it without a second code path.
 import { setOnboarded } from '../store.js';
 import { navigate } from '../router.js';
 import { logoMark } from '../brand.js';
+import { avatarTile } from '../avatars.js';
 import { bindThemeChooser, icon, primaryBtn, themeChooser } from '../ui.js';
 
 const SLIDES = [
   {
-    art: brandBadge(),
+    art: brandBadge,
     title: 'Welcome to VocabMaster',
     copy: 'Master the Word Smart 1 & 2 lists — the academic vocabulary that IELTS rewards.',
   },
   {
-    art: tileGrid(),
+    art: tileGrid,
     title: 'Practice, four ways',
     copy: 'Flashcards, matching, fill-in-the-blank and synonym/antonym drills for every word pack.',
   },
   {
-    art: badge('auto_awesome'),
+    art: coachArt,
     title: 'A coach that adapts',
     copy: 'The AI coach builds sessions from the words you keep missing, and analytics track your streak and mastery.',
   },
   {
+    art: friendsArt,
+    title: 'Better with friends',
+    copy: 'Share your code to connect, compare progress, and build a streak together — practise on the same day to keep it alive.',
+  },
+  {
     setup: true,
-    art: badge('theme'),
+    art: () => badge('theme'),
     title: 'Pick your look',
     copy: 'Choose a theme — you can change it any time in Settings.',
   },
@@ -45,9 +56,9 @@ function brandBadge() {
 }
 
 function tileGrid() {
-  const t = (cls, name) => `<div class="tile ${cls} rounded-2xl aspect-square flex items-center justify-center">${icon(name, 'text-[28px]')}</div>`;
+  const t = (cls, name) => `<div class="ob-tile tile ${cls} rounded-2xl aspect-square flex items-center justify-center">${icon(name, 'text-[28px]')}</div>`;
   return `
-  <div class="float grid grid-cols-2 gap-3 w-44">
+  <div class="grid grid-cols-2 gap-3 w-44">
     ${t('tile-flashcards', 'style')}
     ${t('tile-matching', 'join_inner')}
     ${t('tile-fillBlank', 'edit_note')}
@@ -55,57 +66,161 @@ function tileGrid() {
   </div>`;
 }
 
+// Weak words fly into the coach, which pulses as each lands.
+function coachArt() {
+  const chip = (label, x, y) => `
+    <span class="ob-chip absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-surface-container px-2.5 py-1 text-[11px] text-on-surface-variant shadow-card"
+      style="--from-x:${x}px;--from-y:${y}px">${label}</span>`;
+  return `
+  <div class="relative w-44 h-32 flex items-center justify-center">
+    <span class="ob-ring absolute w-28 h-28 rounded-full border-2 border-primary"></span>
+    <div class="ob-pulse w-24 h-24 rounded-[1.7rem] bg-primary-fixed flex items-center justify-center">
+      ${icon('auto_awesome', 'text-primary text-[46px]')}
+    </div>
+    ${chip('ubiquitous', -74, -40)}
+    ${chip('candid', 78, -14)}
+    ${chip('averse', -68, 46)}
+  </div>`;
+}
+
+// Two faces drift together and the shared streak ignites between them — the
+// mutual streak the Friends tab actually shows.
+function friendsArt() {
+  return `
+  <div class="relative w-44 h-32 flex items-center justify-center">
+    <div class="ob-friend-l absolute" style="left:8px">${avatarTile('a3', 'A', { size: 66 })}</div>
+    <div class="ob-friend-r absolute" style="right:8px">${avatarTile('a6', 'B', { size: 66 })}</div>
+    <div class="ob-flame relative z-10 flex flex-col items-center gap-0.5 rounded-full bg-surface px-2.5 py-1.5 shadow-card">
+      ${icon('local_fire_department', 'text-primary text-[24px]')}
+      <span class="font-mono text-[11px] leading-none text-on-surface">7</span>
+    </div>
+  </div>`;
+}
+
 export function render() {
-  return `<div class="min-h-dvh bg-background flex flex-col pt-safe pb-safe" data-onboarding></div>`;
+  return `<div class="min-h-dvh bg-background flex flex-col pt-safe pb-safe overflow-hidden" data-onboarding></div>`;
 }
 
 export function mount(root) {
   const host = root.querySelector('[data-onboarding]');
   let step = 0;
+  let busy = false;
 
-  const draw = () => {
-    const slide = SLIDES[step];
-    const last = step === SLIDES.length - 1;
-    host.innerHTML = `
+  // The chrome is drawn once; only the slide is swapped, so the buttons and dots
+  // don't flash on every step.
+  host.innerHTML = `
     <div class="h-12"></div>
+    <div data-stage class="flex-1 flex flex-col justify-center overflow-hidden"></div>
+    <div class="px-8 pb-8 flex flex-col gap-5">
+      <div data-dots class="flex justify-center gap-2"></div>
+      <div class="flex gap-3">
+        <button data-back class="px-6 h-[54px] rounded-full border border-outline-variant text-on-surface text-body-md font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+          ${icon('arrow_back', 'text-[20px]')}<span>Back</span>
+        </button>
+        <div class="flex-1">${primaryBtn('Next', 'data-next')}</div>
+      </div>
+      <button data-skip class="self-center px-6 py-2.5 rounded-full border border-outline-variant text-on-surface-variant text-body-sm active:scale-[0.98] transition-transform">Skip tour</button>
+    </div>`;
 
-    <div class="flex-1 flex flex-col items-center justify-center px-8 gap-8 text-center fade-in" data-slide>
-      ${slide.art}
+  const stage = host.querySelector('[data-stage]');
+  const dots = host.querySelector('[data-dots]');
+  const backBtn = host.querySelector('[data-back]');
+  const nextBtn = host.querySelector('[data-next]');
+  const skipBtn = host.querySelector('[data-skip]');
+
+  const slideHtml = (slide) => `
+    <div class="flex flex-col items-center justify-center px-8 gap-8 text-center">
+      ${slide.art()}
       <div class="flex flex-col gap-3 max-w-sm">
         <h1 class="text-headline-lg font-headline text-on-surface">${slide.title}</h1>
         <p class="text-body-md text-on-surface-variant">${slide.copy}</p>
       </div>
       ${slide.setup ? `<div class="w-full max-w-sm">${themeChooser()}</div>` : ''}
-    </div>
-
-    <div class="px-8 pb-8 flex flex-col gap-5">
-      <div class="flex justify-center gap-2">
-        ${SLIDES.map((_, i) => `<span class="h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-primary' : 'w-1.5 bg-outline-variant'}"></span>`).join('')}
-      </div>
-      <div class="flex gap-3">
-        ${step > 0
-          ? `<button data-back class="px-6 h-[54px] rounded-full border border-outline-variant text-on-surface text-body-md font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">${icon('arrow_back', 'text-[20px]')}<span>Back</span></button>`
-          : ''}
-        <div class="flex-1">${primaryBtn(last ? 'Get Started' : 'Next', 'data-next')}</div>
-      </div>
-      ${last ? '' : `<button data-skip class="self-center px-6 py-2.5 rounded-full border border-outline-variant text-on-surface-variant text-body-sm active:scale-[0.98] transition-transform">Skip tour</button>`}
     </div>`;
 
-    if (slide.setup) bindThemeChooser(host);
-    host.querySelector('[data-skip]')?.addEventListener('click', finish);
-    host.querySelector('[data-back]')?.addEventListener('click', () => {
-      if (step > 0) { step--; draw(); }
-    });
-    host.querySelector('[data-next]')?.addEventListener('click', () => {
-      if (last) finish();
-      else { step++; draw(); }
-    });
-  };
+  function paintChrome() {
+    const last = step === SLIDES.length - 1;
+    dots.innerHTML = SLIDES.map((_, i) =>
+      `<span class="h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-primary' : 'w-1.5 bg-outline-variant'}"></span>`).join('');
+    backBtn.classList.toggle('hidden', step === 0);
+    skipBtn.classList.toggle('invisible', last);
+    nextBtn.textContent = last ? 'Get Started' : 'Next';
+  }
+
+  function draw(dir) {
+    const slide = SLIDES[step];
+    const el = document.createElement('div');
+    el.className = 'ob-slide';
+    el.setAttribute('data-dir', dir);
+    el.innerHTML = slideHtml(slide);
+    stage.replaceChildren(el);
+    if (slide.setup) bindThemeChooser(el);
+    paintChrome();
+  }
+
+  // Animates the current slide out, then swaps. `busy` swallows taps mid-swap so
+  // a fast double-tap can't skip a slide or leave two mounted.
+  function go(next) {
+    if (busy || next === step || next < 0 || next >= SLIDES.length) return;
+    const fwd = next > step;
+    const current = stage.firstElementChild;
+    busy = true;
+    if (current) current.setAttribute('data-dir', fwd ? 'out-fwd' : 'out-back');
+    setTimeout(() => {
+      step = next;
+      draw(fwd ? 'fwd' : 'back');
+      busy = false;
+    }, 180); // matches the ob-slide out duration in style.css
+  }
 
   const finish = () => {
     setOnboarded(true);
     navigate('#/sign-in');
   };
 
-  draw();
+  nextBtn.addEventListener('click', () => {
+    if (step === SLIDES.length - 1) finish();
+    else go(step + 1);
+  });
+  backBtn.addEventListener('click', () => go(step - 1));
+  skipBtn.addEventListener('click', finish);
+
+  // Swipe between slides. Same shape as the sheet's swipe-to-dismiss in ui.js:
+  // track the axis, and only claim the gesture once it's clearly horizontal, so
+  // a vertical scroll on a short screen still works.
+  let startX = null, startY = null, axis = null;
+  const onStart = (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    axis = null;
+  };
+  const onMove = (e) => {
+    if (startX === null) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (!axis && Math.abs(dx) + Math.abs(dy) > 10) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if (axis === 'x') e.preventDefault();
+  };
+  const onEnd = (e) => {
+    if (startX === null || axis !== 'x') { startX = null; return; }
+    const dx = e.changedTouches[0].clientX - startX;
+    startX = null;
+    if (Math.abs(dx) < 50) return;
+    if (dx < 0 && step < SLIDES.length - 1) go(step + 1);
+    else if (dx > 0) go(step - 1);
+  };
+  stage.addEventListener('touchstart', onStart, { passive: true });
+  stage.addEventListener('touchmove', onMove, { passive: false });
+  stage.addEventListener('touchend', onEnd);
+  stage.addEventListener('touchcancel', () => { startX = null; });
+
+  // Keyboard, for the web build.
+  const onKeydown = (e) => {
+    if (e.key === 'ArrowRight') go(step + 1);
+    else if (e.key === 'ArrowLeft') go(step - 1);
+  };
+  document.addEventListener('keydown', onKeydown);
+
+  draw('fwd');
+  return () => document.removeEventListener('keydown', onKeydown);
 }
