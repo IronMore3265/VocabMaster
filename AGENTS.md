@@ -24,6 +24,12 @@ Auth, Edge Functions) under `supabase/`.
 - Keep the app dependency-light. Prefer web platform APIs over extra Capacitor
   plugins (e.g. `navigator.vibrate` for haptics).
 
+## Commit conventions
+
+Do not add AI attribution to git metadata. No `Co-Authored-By` trailers, no
+"Generated with Claude Code" lines, no session-URL trailers — in commit messages
+or PR bodies. Commits are authored solely by the repo owner.
+
 ## Supabase
 
 The schema, RLS, views, RPCs (`record_attempt`) and edge functions
