@@ -1,9 +1,12 @@
 import {
-  acceptFriend, addFriendByCode, fetchFriends, fetchFriendStats, fetchMutualStreaks, fetchMyCode,
-  fetchMyStats, removeFriend,
+  acceptFriend, addFriendByCode, fetchFriends, fetchMutualStreaks, fetchMyCode, removeFriend,
 } from '../api/friends.js';
+import { invalidate } from '../api/queries.js';
 import { avatarTile } from '../avatars.js';
+import { navigate } from '../router.js';
+import { setSeenRequestCount } from '../store.js';
 import { haptic } from '../lib/feedback.js';
+import { attachPullToRefresh } from '../lib/pullToRefresh.js';
 import {
   appHeader, bindCodeInput, bottomNav, codeCells, confirmSheet, emptyState, esc, icon, keypad,
   showSheet, spinner,
@@ -23,31 +26,42 @@ export function render() {
 export function mount(root) {
   const body = root.querySelector('[data-body]');
   let disposeSheet = null;
+  // Local model so optimistic actions can repaint instantly, then reconcile.
+  let model = null;
 
-  function draw() {
-    // The streak read is allowed to fail on its own: the catch below renders
-    // "Couldn't load your friends" for any rejection, and a streak outage should
-    // not cost you the list, your code, or the ability to add someone.
-    Promise.all([fetchMyCode(), fetchFriends(), fetchMutualStreaks().catch(() => new Map())])
-      .then(([code, { accepted, incoming, outgoing }, streaks]) => {
-        body.innerHTML = `
-        ${myCodeCard(code)}
+  async function load() {
+    try {
+      const [code, lists, streaks] = await Promise.all([
+        fetchMyCode(),
+        fetchFriends(),
+        fetchMutualStreaks().catch(() => new Map()),
+      ]);
+      model = { code, ...lists, streaks };
+      // Opening the tab counts the current requests as seen (clears the nav dot).
+      setSeenRequestCount(lists.incoming.length);
+      window.dispatchEvent(new CustomEvent('vm:friends-seen'));
+      paint();
+    } catch {
+      body.innerHTML = `<p class="text-body-sm text-error text-center py-10">Couldn't load your friends.</p>`;
+    }
+  }
 
-        <button data-add class="w-full h-[54px] rounded-full bg-primary text-on-primary text-body-md font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-          ${icon('person_add', 'text-[20px]')} Add a friend
-        </button>
+  function paint() {
+    if (!model) return;
+    const { code, accepted, incoming, outgoing, streaks } = model;
+    body.innerHTML = `
+      ${myCodeCard(code)}
 
-        ${incoming.length ? section('Requests', incoming.map(requestRow).join('')) : ''}
-        ${accepted.length
-          ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id)?.streak ?? 0)).join(''))
-          : emptyState('group', 'No friends yet', 'Share your code, or add someone else’s\nto compare progress.')}
-        ${outgoing.length ? section('Waiting to be accepted', outgoing.map(pendingRow).join('')) : ''}`;
+      <button data-add class="w-full h-[54px] rounded-full bg-primary text-on-primary text-body-md font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+        ${icon('person_add', 'text-[20px]')} Add a friend
+      </button>
 
-        bind();
-      })
-      .catch(() => {
-        body.innerHTML = `<p class="text-body-sm text-error text-center py-10">Couldn't load your friends.</p>`;
-      });
+      ${incoming.length ? section('Requests', incoming.map(requestRow).join('')) : ''}
+      ${accepted.length
+        ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id)?.streak ?? 0)).join(''))
+        : emptyState('group', 'No friends yet', 'Share your code, or add someone else’s\nto compare progress.')}
+      ${outgoing.length ? section('Waiting to be accepted', outgoing.map(pendingRow).join('')) : ''}`;
+    bind();
   }
 
   function bind() {
@@ -67,11 +81,7 @@ export function mount(root) {
     });
 
     body.querySelectorAll('[data-accept]').forEach((btn) =>
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        try { await acceptFriend(btn.getAttribute('data-accept')); haptic.success(); draw(); }
-        catch (err) { btn.disabled = false; errorSheet(err); }
-      }));
+      btn.addEventListener('click', () => accept(btn.getAttribute('data-accept'))));
 
     body.querySelectorAll('[data-remove]').forEach((btn) =>
       btn.addEventListener('click', (e) => {
@@ -81,14 +91,47 @@ export function mount(root) {
           title: 'Remove friend?',
           message: 'You will both stop seeing each other’s progress. You can reconnect with their code later.',
           confirmLabel: 'Remove',
-          onConfirm: async () => {
-            try { await removeFriend(id); draw(); } catch (err) { errorSheet(err); }
-          },
+          onConfirm: () => remove(id),
         });
       }));
 
     body.querySelectorAll('[data-compare]').forEach((btn) =>
-      btn.addEventListener('click', () => showCompareSheet(btn.getAttribute('data-compare'))));
+      btn.addEventListener('click', () => navigate(`#/friends/compare/${btn.getAttribute('data-compare')}`)));
+  }
+
+  // Optimistic: move the request into the friends list right away, then confirm.
+  async function accept(id) {
+    const req = model?.incoming.find((f) => f.id === id);
+    if (!req) return;
+    model.incoming = model.incoming.filter((f) => f.id !== id);
+    model.accepted = [{ ...req, status: 'accepted' }, ...model.accepted];
+    haptic.success();
+    paint();
+    try {
+      await acceptFriend(id);
+    } catch (err) {
+      errorSheet(err);
+      await load(); // reconcile from the server on failure
+    }
+  }
+
+  // Optimistic: drop the row from every list, then confirm.
+  async function remove(id) {
+    const prev = model;
+    model = {
+      ...model,
+      accepted: model.accepted.filter((f) => f.id !== id),
+      incoming: model.incoming.filter((f) => f.id !== id),
+      outgoing: model.outgoing.filter((f) => f.id !== id),
+    };
+    paint();
+    try {
+      await removeFriend(id);
+    } catch (err) {
+      model = prev;
+      paint();
+      errorSheet(err);
+    }
   }
 
   function showAddSheet() {
@@ -116,7 +159,7 @@ export function mount(root) {
           await addFriendByCode(code);
           haptic.success();
           close();
-          draw();
+          load();
         } catch (err) {
           errorEl.textContent = String(err?.message || err);
           input.shake();
@@ -128,28 +171,20 @@ export function mount(root) {
     disposeSheet = input.destroy;
   }
 
-  async function showCompareSheet(friendId) {
-    const { el } = showSheet(`
-      <h2 class="text-headline-sm font-headline text-on-surface mb-4">Compare</h2>
-      <div data-compare-body class="flex justify-center py-8">${spinner()}</div>`);
-    const target = el.querySelector('[data-compare-body]');
-    try {
-      const [me, them, streaks] = await Promise.all([
-        fetchMyStats(),
-        fetchFriendStats(friendId),
-        fetchMutualStreaks().catch(() => new Map()),
-      ]);
-      target.className = '';
-      target.innerHTML = mutualBanner(streaks.get(friendId)?.streak ?? 0, them.name)
-        + compareTable(me, them);
-    } catch (err) {
-      target.className = '';
-      target.innerHTML = `<p class="text-body-sm text-error text-center py-6">${esc(String(err?.message || err))}</p>`;
-    }
-  }
+  // Live updates: a friend accepting/sending on their device flows in here.
+  const onFriendsChanged = () => { invalidate('friends:list', 'friends:mutual'); load(); };
+  window.addEventListener('vm:friends-changed', onFriendsChanged);
+  const detachPull = attachPullToRefresh(async () => {
+    invalidate('friends');
+    await load();
+  });
 
-  draw();
-  return () => { disposeSheet?.(); };
+  load();
+  return () => {
+    disposeSheet?.();
+    window.removeEventListener('vm:friends-changed', onFriendsChanged);
+    detachPull();
+  };
 }
 
 // ---------- pieces ----------
@@ -181,15 +216,15 @@ function myCodeCard(code) {
 const avatar = (f) => avatarTile(f.avatar, f.name, { size: 40 });
 
 /**
- * The mutual streak: days in a row you and this friend BOTH practised. Hidden at
- * zero — a cold flame on every row would make the live ones invisible.
+ * The mutual streak: days in a row you and this friend BOTH hit your goals.
+ * Hidden at zero — a cold flame on every row would make the live ones invisible.
  */
 function streakBadge(days) {
   if (!days) return '';
   return `
-  <span class="flex items-center gap-1 shrink-0 rounded-full bg-primary-fixed px-2 py-0.5" title="${days} day${days === 1 ? '' : 's'} you both practised">
-    ${icon('local_fire_department', 'text-primary text-[14px]')}
-    <span class="font-mono text-[13px] leading-none text-on-primary-fixed">${days}</span>
+  <span class="flex items-center gap-1 shrink-0 rounded-full bg-flame/15 px-2 py-0.5" title="${days} day${days === 1 ? '' : 's'} you both hit your goal">
+    ${icon('local_fire_department', 'text-flame text-[14px]')}
+    <span class="font-mono text-[13px] leading-none text-flame">${days}</span>
   </span>`;
 }
 
@@ -232,56 +267,6 @@ function pendingRow(f) {
       ${icon('close', 'text-[18px]')}
     </button>
   </div>`;
-}
-
-/**
- * The mutual streak belongs to the pair, so it sits above the table rather than
- * in it — every row below is "yours vs theirs", and this number is neither.
- * At zero it's an invitation instead of a score.
- */
-function mutualBanner(days, name) {
-  const live = days > 0;
-  return `
-  <div class="flex items-center gap-3 rounded-2xl p-4 mb-4 ${live ? 'bg-primary-fixed' : 'bg-surface-container'}">
-    <div class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center ${live ? 'bg-surface' : 'bg-surface-container-high'}">
-      ${icon('local_fire_department', live ? 'text-primary text-[22px]' : 'text-outline text-[22px]')}
-    </div>
-    <div class="min-w-0">
-      <p class="text-body-md ${live ? 'text-on-primary-fixed' : 'text-on-surface'}">
-        ${live
-          ? `<span class="font-mono">${days}</span> day${days === 1 ? '' : 's'} together`
-          : 'No streak yet'}
-      </p>
-      <p class="text-body-sm line-clamp-2 ${live ? 'text-on-primary-fixed opacity-80' : 'text-on-surface-variant'}">
-        ${live
-          ? 'Both practise today to keep it.'
-          : `Practise on the same day as ${esc(name)} to start one.`}
-      </p>
-    </div>
-  </div>`;
-}
-
-function compareTable(me, them) {
-  const rows = [
-    { label: 'Day streak', a: me.streak, b: them.streak },
-    { label: 'Words mastered', a: me.mastered, b: them.mastered },
-    { label: 'Attempts', a: me.attempts, b: them.attempts },
-    { label: 'Accuracy', a: Math.round(me.accuracy * 100), b: Math.round(them.accuracy * 100), suffix: '%' },
-  ];
-  const cell = (v, win, suffix) => `
-    <span class="flex-1 text-center font-mono text-[20px] ${win ? 'text-primary' : 'text-on-surface-variant'}">${v}${suffix ?? ''}</span>`;
-  return `
-  <div class="flex items-center gap-3 mb-3">
-    <span class="flex-1 text-center text-label-sm uppercase text-on-surface-variant">You</span>
-    <span class="w-24 shrink-0"></span>
-    <span class="flex-1 text-center text-label-sm uppercase text-on-surface-variant truncate">${esc(them.name)}</span>
-  </div>
-  ${rows.map((r) => `
-    <div class="flex items-center gap-3 py-2.5 border-b border-progress-track last:border-0">
-      ${cell(r.a, r.a > r.b, r.suffix)}
-      <span class="w-24 shrink-0 text-center text-body-sm text-on-surface-variant">${esc(r.label)}</span>
-      ${cell(r.b, r.b > r.a, r.suffix)}
-    </div>`).join('')}`;
 }
 
 function errorSheet(err) {

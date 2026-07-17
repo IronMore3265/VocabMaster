@@ -3,10 +3,16 @@
 // supabase/migrations/0007_friends.sql) — the analytics views can't help here
 // because they hardcode auth.uid().
 import { supabase } from '../supabase.js';
+import { getSettings } from '../store.js';
 import {
-  DEVICE_TZ, cached, computeStreak, fetchAttemptDates, fetchExerciseAccuracy, fetchPackProgress,
-  invalidate,
+  DEVICE_TZ, cached, computeStreak, dailyXp, fetchExerciseAccuracy, fetchAttemptEvents,
+  fetchPackProgress, fetchStreakState, invalidate, levelForXp, localDayKey, qualifyingDays,
+  totalXp,
 } from './queries.js';
+
+// Friend-sourced reads can change on another device without our knowing to
+// invalidate, so they carry a short TTL that lets a stale value self-heal.
+const FRIEND_TTL = 45_000;
 
 /**
  * The signed-in user's own profile row. The code, the name and the avatar all
@@ -72,7 +78,7 @@ export function fetchFriends() {
       incoming: rows.filter((r) => r.status === 'pending' && r.direction === 'in'),
       outgoing: rows.filter((r) => r.status === 'pending' && r.direction === 'out'),
     };
-  });
+  }, FRIEND_TTL);
 }
 
 /**
@@ -89,7 +95,7 @@ export function fetchMutualStreaks() {
       r.out_friend_id,
       { streak: Number(r.out_streak ?? 0), lastMutualDay: r.out_last_mutual_day },
     ]));
-  });
+  }, FRIEND_TTL);
 }
 
 /** Headline stats for one accepted friend. The RPC re-checks the friendship. */
@@ -97,46 +103,94 @@ export function fetchFriendStats(friendId) {
   return cached(`friends:stats:${friendId}`, async () => {
     const { data, error } = await supabase.rpc('friend_stats', {
       p_friend_id: friendId,
-      // Same zone computeStreak() uses, so the compare sheet isn't putting a
+      // Same zone computeStreak() uses, so the compare view isn't putting a
       // device-local streak next to a UTC one.
       p_tz: DEVICE_TZ,
     });
     if (error) throw error;
     const row = data?.[0];
     if (!row) throw new Error('No stats available');
+    const xp = Number(row.out_total_xp ?? 0);
     return {
       id: row.out_friend_id,
       name: row.out_display_name,
-      attempts: Number(row.out_attempts ?? 0),
+      packs: Number(row.out_packs ?? 0),
       accuracy: Number(row.out_accuracy ?? 0),
       mastered: Number(row.out_mastered ?? 0),
       streak: Number(row.out_streak ?? 0),
+      totalXp: xp,
+      level: levelForXp(xp).level,
       lastActive: row.out_last_active,
     };
-  });
+  }, FRIEND_TTL);
+}
+
+/** A friend's daily XP for the last `days` days, zero-filled, for the compare chart. */
+export function fetchFriendXpSeries(friendId, days = 30) {
+  return cached(`friends:xp:${friendId}:${days}`, async () => {
+    const { data, error } = await supabase.rpc('friend_xp_series', {
+      p_friend_id: friendId,
+      p_days: days,
+      p_tz: DEVICE_TZ,
+    });
+    if (error) throw error;
+    return (data ?? []).map((r) => ({ day: r.out_day, xp: Number(r.out_xp ?? 0) }));
+  }, FRIEND_TTL);
+}
+
+/** The signed-in user's own daily XP series (client-derived), same shape as above. */
+export async function fetchMyXpSeries(days = 30) {
+  const events = await fetchAttemptEvents().catch(() => []);
+  const byDay = dailyXp(events);
+  const out = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const key = localDayKey(d);
+    out.push({ day: key, xp: byDay.get(key) ?? 0 });
+  }
+  return out;
+}
+
+/** Number of packs where every word is mastered (box 5). */
+export function packsCompleted(progress) {
+  return progress.filter((r) => (r.word_count ?? 0) > 0 && (r.mastered ?? 0) >= r.word_count).length;
 }
 
 /**
  * The signed-in user's own stats in the same shape as fetchFriendStats, so the
  * compare view can put the two side by side. Built from the existing analytics
- * reads rather than a second RPC — they're already cached for the Analytics tab.
+ * reads (already cached for the Analytics tab) plus the authoritative streak.
  */
 export async function fetchMyStats() {
-  const [accuracy, dates, progress] = await Promise.all([
+  const goal = getSettings().dailyGoal;
+  const [accuracy, events, progress, streakState] = await Promise.all([
     fetchExerciseAccuracy().catch(() => []),
-    fetchAttemptDates().catch(() => []),
+    fetchAttemptEvents().catch(() => []),
     fetchPackProgress().catch(() => []),
+    fetchStreakState().catch(() => null),
   ]);
   const attempts = accuracy.reduce((s, r) => s + (r.attempts ?? 0), 0);
+  const xp = totalXp(events);
+  const byDay = dailyXp(events);
+  const todayXp = byDay.get(localDayKey(new Date())) ?? 0;
+  const streak = streakState?.streak
+    ?? computeStreak(qualifyingDays(byDay, goal, streakState?.freezeDays));
   return {
     name: 'You',
-    attempts,
+    packs: packsCompleted(progress),
     accuracy: attempts > 0
       ? accuracy.reduce((s, r) => s + (r.accuracy ?? 0) * (r.attempts ?? 0), 0) / attempts
       : 0,
     mastered: progress.reduce((s, r) => s + (r.mastered ?? 0), 0),
-    streak: computeStreak(dates),
-    lastActive: dates[0] ?? null,
+    streak,
+    freezes: streakState?.freezes ?? 0,
+    totalXp: xp,
+    level: levelForXp(xp).level,
+    todayXp,
+    goal,
+    lastActive: events[0]?.at ?? null,
   };
 }
 

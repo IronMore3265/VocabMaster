@@ -2,11 +2,20 @@ import './style.css';
 
 import { forceRender, navigate, startRouter } from './router.js';
 import { getAuthState, onAuthChange, signOut } from './auth.js';
-import { isOnboarded } from './store.js';
+import { getSeenRequestCount, getSettings, isOnboarded } from './store.js';
 import { applyTheme } from './theme.js';
 import { logoTile } from './brand.js';
-import { closeTopSheet, icon, refreshProfileAvatar, showChangelogSheet, showSheet } from './ui.js';
+import {
+  closeTopSheet, icon, refreshProfileAvatar, setUnseenRequests, showChangelogSheet, showSheet,
+} from './ui.js';
 import { haptic } from './lib/feedback.js';
+import {
+  pauseFriendsRealtime, resumeFriendsRealtime, startFriendsRealtime, stopFriendsRealtime,
+} from './api/realtime.js';
+import { fetchStreakState } from './api/queries.js';
+import { fetchFriends, fetchMyStats } from './api/friends.js';
+import { syncDailyGoal } from './api/account.js';
+import { cancelAllReminders, rescheduleReminders } from './lib/notifications.js';
 
 import * as onboarding from './screens/onboarding.js';
 import * as signIn from './screens/sign-in.js';
@@ -24,6 +33,7 @@ import * as ai from './screens/ai.js';
 import * as results from './screens/results.js';
 import * as settings from './screens/settings.js';
 import * as friends from './screens/friends.js';
+import * as compare from './screens/compare.js';
 import * as profile from './screens/profile.js';
 import * as revise from './screens/revise.js';
 
@@ -44,6 +54,7 @@ const routes = [
   { pattern: /^#\/results\/(\d+)\/(\d+)$/, screen: results },
   { pattern: /^#\/settings$/, screen: settings },
   { pattern: /^#\/friends$/, screen: friends },
+  { pattern: /^#\/friends\/compare\/([0-9a-fA-F-]+)$/, screen: compare },
   { pattern: /^#\/profile$/, screen: profile },
   // Params: scope ('pack' | 'book') + its id — see revise.mount(root, scope, value).
   { pattern: /^#\/revise\/(pack|book)\/(\d+)$/, screen: revise },
@@ -104,7 +115,45 @@ function openMenu() {
   el.querySelector('[data-signout]').addEventListener('click', () => { close(); signOut(); });
 }
 
-// ---------- Android hardware back button ----------
+// ---------- per-session bootstrap ----------
+// Runs when the signed-in identity changes: live friend updates, the daily-goal
+// sync, streak-state priming, notification reminders, and the Friends tab dot.
+let bootstrappedUser = null;
+
+async function refreshRemindersAndBadge() {
+  try {
+    const [me, lists] = await Promise.all([
+      fetchMyStats().catch(() => null),
+      fetchFriends().catch(() => ({ incoming: [] })),
+    ]);
+    setUnseenRequests((lists.incoming?.length ?? 0) > getSeenRequestCount());
+    if (getSettings().notifications && me) {
+      await rescheduleReminders({ streak: me.streak, goalMet: me.todayXp >= me.goal });
+    }
+  } catch { /* best-effort */ }
+}
+
+async function bootstrapSession() {
+  const userId = getAuthState().session?.user?.id ?? null;
+  if (userId === bootstrappedUser) return;
+  bootstrappedUser = userId;
+  if (!userId) {
+    stopFriendsRealtime();
+    setUnseenRequests(false);
+    cancelAllReminders();
+    return;
+  }
+  startFriendsRealtime(userId);
+  try { await syncDailyGoal(); } catch { /* offline — device setting stands */ }
+  fetchStreakState().catch(() => {}); // prime + run the day-boundary freeze bookkeeping
+  refreshRemindersAndBadge();
+}
+
+// A friend's action (realtime) or opening the Friends tab move the dot.
+window.addEventListener('vm:friends-changed', refreshRemindersAndBadge);
+window.addEventListener('vm:friends-seen', () => setUnseenRequests(false));
+
+// ---------- Android hardware back button + app lifecycle ----------
 import('@capacitor/app')
   .then(({ App }) => {
     App.addListener('backButton', ({ canGoBack }) => {
@@ -113,6 +162,19 @@ import('@capacitor/app')
       if (hash === '#/library' || hash === '#/onboarding' || hash === '#/sign-in') App.exitApp();
       else if (canGoBack) history.back();
       else navigate('#/library');
+    });
+    // Close the realtime socket while backgrounded (battery); on resume reopen it
+    // and re-check the streak/reminders, since a day may have rolled over.
+    App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        resumeFriendsRealtime();
+        if (getAuthState().session) {
+          fetchStreakState().catch(() => {});
+          refreshRemindersAndBadge();
+        }
+      } else {
+        pauseFriendsRealtime();
+      }
     });
   })
   .catch(() => { /* not on native — fine */ });
@@ -139,6 +201,7 @@ onAuthChange(() => {
   // Whoever is signed in now owns the header avatar — including nobody, which
   // clears it rather than leaving the previous user's face there.
   refreshProfileAvatar();
+  bootstrapSession();
   if (!started) boot();
   else forceRender();
 });

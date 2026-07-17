@@ -1,6 +1,48 @@
 import { supabase } from '../supabase.js';
 import { AVATAR_IDS } from '../avatars.js';
+import { getSettings, setSettings } from '../store.js';
 import { invalidate } from './queries.js';
+
+/** The daily XP goals a user can pick, matching profiles.daily_goal's check. */
+export const DAILY_GOALS = [
+  { value: 50, label: 'Casual' },
+  { value: 100, label: 'Regular' },
+  { value: 250, label: 'Serious' },
+];
+
+/**
+ * Sets the daily XP goal that gates the streak. The profile row is the source of
+ * truth (friend streak calcs read it server-side); the device setting mirrors it
+ * so the client's own streak math is instant and works offline.
+ */
+export async function updateDailyGoal(goal) {
+  const value = Number(goal);
+  if (!DAILY_GOALS.some((g) => g.value === value)) throw new Error('Pick a goal from the list.');
+
+  const { data: userRes, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userRes.user?.id;
+  if (!userId) throw new Error('Not signed in.');
+
+  const { error } = await supabase.from('profiles').update({ daily_goal: value }).eq('id', userId);
+  if (error) throw error;
+
+  setSettings({ dailyGoal: value });
+  // A new goal re-decides which days qualified, so the streak and friend views move.
+  invalidate('streak-state', 'friends', 'attempt-events');
+  return value;
+}
+
+/** Reads the daily goal from the profile and mirrors it into device settings. */
+export async function syncDailyGoal() {
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes.user?.id;
+  if (!userId) return getSettings().dailyGoal;
+  const { data } = await supabase.from('profiles').select('daily_goal').eq('id', userId).single();
+  const goal = data?.daily_goal;
+  if (goal && goal !== getSettings().dailyGoal) setSettings({ dailyGoal: goal });
+  return goal ?? getSettings().dailyGoal;
+}
 
 /**
  * Permanently deletes the signed-in user's account and all of their data.

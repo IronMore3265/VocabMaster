@@ -1,5 +1,6 @@
 import { navigate } from '../router.js';
 import { progressRing } from '../ui.js';
+import { maybeCelebrateStreak } from '../lib/streakCelebration.js';
 
 export function render(correct, total) {
   const c = Number(correct ?? 0);
@@ -20,4 +21,6 @@ export function mount(root) {
     if (history.length > 1) history.back();
     else navigate('#/library');
   });
+  // If this session pushed today over its XP goal, light the streak fire.
+  maybeCelebrateStreak();
 }

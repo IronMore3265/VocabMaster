@@ -15,22 +15,74 @@ export const DEVICE_TZ = (() => {
   }
 })();
 
+// ---------- XP ----------
+// The single client-side source of XP truth; mirrors xp_for() in migration 0011.
+// Flashcards are self-graded and cheap (a full pack tops out at ~40 XP, below the
+// Regular goal), so real recall exercises are what actually move the streak.
+export const XP_WEIGHTS = {
+  flashcard: { correct: 2, wrong: 1 },
+  default: { correct: 5, wrong: 1 },
+};
+
+export function xpFor(type, correct) {
+  const w = XP_WEIGHTS[type] ?? XP_WEIGHTS.default;
+  return correct ? w.correct : w.wrong;
+}
+
+/** Local calendar-day key (device zone), matching the server's tz bucketing. */
+export function localDayKey(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Sum XP per local day from attempt events → Map<dayKey, xp>. */
+export function dailyXp(events) {
+  const map = new Map();
+  for (const e of events) {
+    const k = localDayKey(e.at);
+    map.set(k, (map.get(k) ?? 0) + xpFor(e.type, e.correct));
+  }
+  return map;
+}
+
+export function totalXp(events) {
+  let sum = 0;
+  for (const e of events) sum += xpFor(e.type, e.correct);
+  return sum;
+}
+
+/**
+ * Level from lifetime XP. Each level costs more than the last (level L starts at
+ * 100·(L−1)² XP), so early levels come fast and later ones are a grind.
+ */
+export function levelForXp(xp) {
+  const level = Math.floor(Math.sqrt(Math.max(0, xp) / 100)) + 1;
+  const floor = 100 * (level - 1) ** 2;
+  const ceil = 100 * level ** 2;
+  return { level, floor, ceil, into: xp - floor, span: ceil - floor };
+}
+
 // ---------- tiny promise cache ----------
 // Replaces react-query: memoises in-flight/resolved promises by key so screens
 // can call freely, and clears keys after a write so progress re-reads fresh.
+// An optional ttlMs makes an entry go stale on its own — used for friend-sourced
+// reads that another device can change without our knowing to invalidate.
 const cache = new Map();
 
-export function cached(key, fn) {
-  if (!cache.has(key)) {
-    cache.set(
-      key,
-      fn().catch((err) => {
-        cache.delete(key); // let a failed fetch be retried
-        throw err;
-      }),
-    );
+export function cached(key, fn, ttlMs = 0) {
+  const hit = cache.get(key);
+  if (hit && !(ttlMs > 0 && Date.now() - hit.at > ttlMs)) {
+    return hit.promise;
   }
-  return cache.get(key);
+  const promise = fn().catch((err) => {
+    if (cache.get(key)?.promise === promise) cache.delete(key); // let a failed fetch retry
+    throw err;
+  });
+  cache.set(key, { promise, at: Date.now() });
+  return promise;
 }
 
 export function invalidate(...prefixes) {
@@ -146,42 +198,75 @@ export function fetchRevisionWords({ packId = null, book = null, limit = 20 } = 
   });
 }
 
-/** Attempt timestamps from the last 90 days, for the streak calculation. */
-export function fetchAttemptDates() {
-  return cached('attempt-dates', async () => {
+/**
+ * Attempt events from the last 90 days (timestamp + type + correctness), for XP,
+ * streak and the weekly chart. Was fetchAttemptDates(): a streak is now gated on
+ * daily XP, not "practised at all", so the raw dates are no longer enough.
+ */
+export function fetchAttemptEvents() {
+  return cached('attempt-events', async () => {
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('attempts')
-      .select('created_at')
+      .select('created_at, exercise_type, is_correct')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(5000);
     if (error) throw error;
-    return data.map((row) => row.created_at);
+    return data.map((row) => ({ at: row.created_at, type: row.exercise_type, correct: row.is_correct }));
   });
 }
 
-/** Consecutive practice days ending today or yesterday (device timezone). */
-export function computeStreak(timestamps, now = new Date()) {
-  const days = new Set(timestamps.map((ts) => new Date(ts).toDateString()));
+/**
+ * Server-authoritative streak state: refills/consumes streak freezes at the day
+ * boundary and returns the current goal-gated streak. Called on app open and
+ * after practice. Short TTL so a stale value self-heals. `freezeDays` (local day
+ * keys) feed the client's longest-streak calc so a frozen day keeps a run whole.
+ */
+export function fetchStreakState() {
+  return cached('streak-state', async () => {
+    const { data, error } = await supabase.rpc('refresh_streak_state', { p_tz: DEVICE_TZ });
+    if (error) throw error;
+    const row = data?.[0] ?? {};
+    const { data: fd } = await supabase.from('streak_freeze_days').select('day');
+    return {
+      streak: row.out_streak ?? 0,
+      freezes: row.out_freezes ?? 0,
+      freezeDays: new Set((fd ?? []).map((r) => r.day)),
+    };
+  }, 60_000);
+}
+
+/**
+ * Local days that count toward a streak: XP met the goal, or the day was frozen.
+ * Returns a Set of day keys.
+ */
+export function qualifyingDays(xpByDay, goal, frozen = new Set()) {
+  const days = new Set(frozen);
+  for (const [k, xp] of xpByDay) {
+    if (xp >= goal) days.add(k);
+  }
+  return days;
+}
+
+/** Consecutive qualifying days ending today or yesterday (device timezone). */
+export function computeStreak(qualDays, now = new Date()) {
   const cursor = new Date(now);
-  // A streak survives until midnight: if today has no practice yet, start yesterday.
-  if (!days.has(cursor.toDateString())) {
+  // A streak survives until midnight: if today isn't done yet, start at yesterday.
+  if (!qualDays.has(localDayKey(cursor))) {
     cursor.setDate(cursor.getDate() - 1);
   }
   let streak = 0;
-  while (days.has(cursor.toDateString())) {
+  while (qualDays.has(localDayKey(cursor))) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
 }
 
-/** Longest run of consecutive practice days anywhere in the history window. */
-export function computeLongestStreak(timestamps) {
-  const days = [...new Set(timestamps.map((ts) => new Date(ts).toDateString()))]
-    .map((s) => new Date(s).getTime())
-    .sort((a, b) => a - b);
+/** Longest run of consecutive qualifying days anywhere in the history window. */
+export function computeLongestStreak(qualDays) {
+  const days = [...qualDays].map((k) => new Date(`${k}T00:00:00`).getTime()).sort((a, b) => a - b);
   if (days.length === 0) return 0;
   const DAY = 24 * 60 * 60 * 1000;
   let best = 1;
@@ -194,20 +279,13 @@ export function computeLongestStreak(timestamps) {
   return best;
 }
 
-/** Practice-attempt counts for the last `n` days (oldest → today), for charts. */
-export function dailyActivity(timestamps, n = 7, now = new Date()) {
+/** XP earned per day for the last `n` days (oldest → today), for the weekly chart. */
+export function dailyActivity(xpByDay, n = 7, now = new Date()) {
   const buckets = [];
-  const index = new Map();
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    const bucket = { date: d, key: d.toDateString(), count: 0 };
-    index.set(bucket.key, buckets.length);
-    buckets.push(bucket);
-  }
-  for (const ts of timestamps) {
-    const k = new Date(ts).toDateString();
-    if (index.has(k)) buckets[index.get(k)].count++;
+    buckets.push({ date: d, key: localDayKey(d), xp: xpByDay.get(localDayKey(d)) ?? 0 });
   }
   return buckets;
 }
@@ -234,11 +312,11 @@ export async function recordAttempt({ wordId, packId, type, correct }) {
     return;
   }
   invalidate(
-    'pack-progress', 'exercise-accuracy', 'weak-words', 'attempt-dates',
+    'pack-progress', 'exercise-accuracy', 'weak-words', 'attempt-events',
     // An answer moves next_due, so revision state is stale too.
     'pack-revision', 'revision-words',
-    // Practising today can complete a mutual day, so every pair streak may move.
-    // Not 'friends:stats:' — that reports the friend's numbers, not yours.
-    'friends:mutual',
+    // Earning XP today can complete the goal (bumping the streak / clearing a
+    // freeze) and complete a mutual day, so those are stale too.
+    'streak-state', 'friends:mutual',
   );
 }

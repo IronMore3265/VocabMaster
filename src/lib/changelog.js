@@ -2,6 +2,21 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '6.0.0',
+    date: '2026-07-18',
+    notes: [
+      'Added XP: every answer now earns points — 5 for a correct matching, fill-in-the-blank or synonym answer, 2 for a flashcard you knew, and 1 for a miss.',
+      'Your streak now counts only days you hit a daily XP goal. Pick Casual (50), Regular (100) or Serious (250) in Settings.',
+      'Added a full-screen fire celebration the moment you hit your goal and extend your streak.',
+      'Added streak freezes: miss a day and one is spent automatically to save your streak. You hold up to 2, and earn one back each week.',
+      'Mastery is honest now — a word only advances when you get it right on its scheduled review, so cramming no longer “masters” it in one sitting, and a word counts as mastered only after it survives the full review ladder.',
+      'Analytics now shows your level, daily XP against your goal, and packs completed instead of a raw attempt count.',
+      'Added local reminders that nudge you to keep your streak (and let you know when a friend adds you), with a time you choose in Settings.',
+      'Friend requests and acceptances now appear instantly, and a dot on the Friends tab flags new requests. Pull down to refresh the list.',
+      'Redesigned friend comparison as a full screen with an XP line chart, both your avatars, and your shared streak lit between them.',
+    ],
+  },
+  {
     version: '5.5.0',
     date: '2026-07-17',
     notes: [

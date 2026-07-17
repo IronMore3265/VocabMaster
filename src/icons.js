@@ -4,13 +4,13 @@
 // to a string because screens build markup as template literals. Keys use the
 // app's own vocabulary so a future change of icon set is a one-file edit.
 import {
-  Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, BookA, BookOpen,
-  BookmarkCheck, BookmarkPlus, Check, ChevronRight, CircleCheckBig,
+  Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
+  BookmarkCheck, BookmarkPlus, Check, CheckCheck, ChevronRight, CircleCheckBig,
   CircleUserRound, CircleX, Combine, Copy, Delete, Download, Eye, EyeOff, Flame,
   GraduationCap, Hand, History, Hourglass, Layers, Library, LogOut, Moon,
   Palette, PenLine, Play, RefreshCw, RotateCcw, ScrollText, Search, Settings,
-  Smile, Sparkles, Sun, SunMoon, Target, TextAlignStart, TrendingUp, Trash2,
-  TriangleAlert, UserPlus, Users, Volume2, X, Zap,
+  Smile, Snowflake, Sparkles, Sun, SunMoon, Target, TextAlignStart, TrendingUp,
+  Trash2, TriangleAlert, UserPlus, Users, Volume2, X, Zap,
 } from 'lucide';
 
 export const ICONS = {
@@ -58,6 +58,9 @@ export const ICONS = {
   target: Target,
   trending_up: TrendingUp,
   bolt: Zap,
+  ac_unit: Snowflake, // streak freeze
+  task_alt: CheckCheck, // packs completed
+  notifications: Bell,
 
   // ai coach
   auto_awesome: Sparkles,

@@ -36,4 +36,6 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- navigator.vibrate() in the WebView silently no-ops without this. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Local practice reminders (Android 13+ requires the runtime prompt). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

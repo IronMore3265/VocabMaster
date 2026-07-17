@@ -93,17 +93,43 @@ const TABS = [
   { route: '#/friends', iconName: 'group', label: 'Friends' },
 ];
 
-export function bottomNav(activeRoute) {
+// Whether there are unseen incoming friend requests — drives the Friends tab dot.
+// Set from the realtime/boot path; the Friends screen clears it on open.
+let unseenRequests = false;
+
+export function setUnseenRequests(on) {
+  unseenRequests = !!on;
+  for (const btn of document.querySelectorAll('.vt-bottomnav [data-nav="#/friends"]')) {
+    const dot = btn.querySelector('[data-req-dot]');
+    if (unseenRequests && !dot) {
+      btn.insertAdjacentHTML('afterbegin',
+        '<span data-req-dot class="absolute top-2 right-[22%] w-2 h-2 rounded-full bg-error border border-background"></span>');
+    } else if (!unseenRequests && dot) {
+      dot.remove();
+    }
+  }
+}
+
+/**
+ * `badges` maps a tab route to a truthy value to show an unread dot on it. The
+ * Friends dot also reflects the shared unseenRequests flag so it survives
+ * re-renders without every caller having to pass it.
+ */
+export function bottomNav(activeRoute, { badges = {} } = {}) {
   return `
   <nav class="vt-bottomnav pb-safe fixed bottom-0 left-0 w-full z-40 bg-background/95 backdrop-blur border-t border-progress-track">
     <div class="flex justify-around items-center h-[68px] px-1">
       ${TABS.map((t) => {
         const active = t.route === activeRoute;
+        const showBadge = badges[t.route] || (t.route === '#/friends' && unseenRequests);
+        const badge = showBadge
+          ? '<span data-req-dot class="absolute top-2 right-[22%] w-2 h-2 rounded-full bg-error border border-background"></span>'
+          : '';
         return `
-        <button data-nav="${t.route}" class="flex flex-col items-center justify-center gap-1 w-full h-full active:scale-95 transition-[transform,color] duration-200 ${
+        <button data-nav="${t.route}" class="relative flex flex-col items-center justify-center gap-1 w-full h-full active:scale-95 transition-[transform,color] duration-200 ${
           active ? 'text-primary' : 'text-on-surface-variant'
         }">
-          ${icon(t.iconName, active ? 'icon-strong' : '')}
+          ${icon(t.iconName, active ? 'icon-strong' : '')}${badge}
           <span class="text-[10px] font-medium leading-none">${t.label}</span>
           <span class="w-1 h-1 rounded-full ${active ? 'bg-primary' : 'bg-transparent'}"></span>
         </button>`;
@@ -189,6 +215,46 @@ export function progressRing({ progress = 0, size = 96, stroke = 10, label } = {
         stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"></circle>
     </svg>
     <span class="absolute font-mono text-on-surface" style="font-size:${Math.round(size / 5.3)}px">${text}</span>
+  </div>`;
+}
+
+/**
+ * A two-line XP-over-time chart (you vs a friend), inline SVG in the progressRing
+ * spirit. `mine`/`theirs` are equal-length [{ day, xp }] series oldest→newest.
+ * You draw in the blue primary, the friend in flame orange.
+ */
+export function xpLineChart(mine, theirs, { myLabel = 'You', theirLabel = 'Them' } = {}) {
+  const W = 320;
+  const H = 140;
+  const padL = 4;
+  const padR = 4;
+  const padT = 8;
+  const padB = 8;
+  const n = Math.max(mine.length, theirs.length, 2);
+  const max = Math.max(1, ...mine.map((d) => d.xp), ...theirs.map((d) => d.xp));
+  const x = (i) => padL + (i * (W - padL - padR)) / (n - 1);
+  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+  const line = (s) => s.map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(d.xp).toFixed(1)}`).join(' ');
+  const grid = [0.25, 0.5, 0.75, 1].map((f) => {
+    const gy = (padT + (H - padT - padB) * (1 - f)).toFixed(1);
+    return `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" class="stroke-progress-track" stroke-width="1" stroke-dasharray="2 4"/>`;
+  }).join('');
+  const legendDot = (colorCls, label) => `
+    <span class="flex items-center gap-1.5 text-label-sm text-on-surface-variant">
+      <span class="w-2.5 h-2.5 rounded-full ${colorCls}"></span>${esc(label)}
+    </span>`;
+  return `
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center gap-4">
+      ${legendDot('bg-primary', myLabel)}
+      ${legendDot('bg-flame', theirLabel)}
+      <span class="ml-auto font-mono text-label-sm text-on-surface-variant">peak ${max} XP</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" preserveAspectRatio="none" role="img" aria-label="XP over time">
+      ${grid}
+      <path d="${line(theirs)}" fill="none" class="stroke-flame" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${line(mine)}" fill="none" class="stroke-primary" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
   </div>`;
 }
 
