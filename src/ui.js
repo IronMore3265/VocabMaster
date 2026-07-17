@@ -117,10 +117,6 @@ export function primaryBtn(label, attrs = '', extra = '') {
   return `<button ${attrs} class="w-full h-[54px] rounded-full bg-primary text-on-primary text-body-md font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 ${extra}">${label}</button>`;
 }
 
-export function ghostBtn(label, attrs = '') {
-  return `<button ${attrs} class="px-6 py-3 rounded-full border border-outline-variant text-on-surface-variant text-body-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">${label}</button>`;
-}
-
 // ---------- form fields ----------
 export const inputCls =
   'w-full px-4 py-3.5 rounded-xl border border-outline-variant bg-surface text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors';

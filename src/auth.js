@@ -41,10 +41,6 @@ export function getAuthState() {
   return state;
 }
 
-export function isSignedIn() {
-  return !!state.session;
-}
-
 export function onAuthChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);

@@ -4,15 +4,13 @@
 // to a string because screens build markup as template literals. Keys use the
 // app's own vocabulary so a future change of icon set is a one-file edit.
 import {
-  Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
-  BookmarkCheck, BookmarkPlus, Calendar, CalendarDays, CaseSensitive, ChartColumn,
-  Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheckBig, CircleUserRound,
-  CircleX, Combine, Copy, Delete, Download, Eye, EyeOff, Flame, Flag,
-  GraduationCap, Hand, History, Hourglass, Layers, Library, Lock, LogOut, Mail,
-  Menu, Minus, Moon, Palette, PenLine, Play, Plus, RefreshCw, RotateCcw,
-  ScrollText, Search, Settings, Smile, Sparkles, Sun, SunMoon, Target,
-  TextAlignStart, TrendingUp, Trash2, TriangleAlert, Trophy, UserPlus, Users,
-  Volume2, X, Zap,
+  Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, BookA, BookOpen,
+  BookmarkCheck, BookmarkPlus, Check, ChevronRight, CircleCheckBig,
+  CircleUserRound, CircleX, Combine, Copy, Delete, Download, Eye, EyeOff, Flame,
+  GraduationCap, Hand, History, Hourglass, Layers, Library, LogOut, Moon,
+  Palette, PenLine, Play, RefreshCw, RotateCcw, ScrollText, Search, Settings,
+  Smile, Sparkles, Sun, SunMoon, Target, TextAlignStart, TrendingUp, Trash2,
+  TriangleAlert, UserPlus, Users, Volume2, X, Zap,
 } from 'lucide';
 
 export const ICONS = {
@@ -20,10 +18,8 @@ export const ICONS = {
   menu: TextAlignStart,
   arrow_back: ArrowLeft,
   arrow_forward: ArrowRight,
-  chevron_left: ChevronLeft,
   chevron_right: ChevronRight,
   close: X,
-  notifications: Bell,
   settings: Settings,
   user: CircleUserRound,
   logout: LogOut,
@@ -34,13 +30,9 @@ export const ICONS = {
   monitoring: Activity,
 
   // books + packs
-  menu_book: BookOpen,
   book_2: BookOpen,
-  case_sensitive: CaseSensitive,
 
   // actions
-  add: Plus,
-  remove: Minus,
   check: Check,
   search: Search,
   play_arrow: Play,
@@ -64,25 +56,16 @@ export const ICONS = {
   workspace_premium: Award,
   history: History,
   target: Target,
-  trophy: Trophy,
-  calendar: Calendar,
-  flag: Flag,
-  bar_chart: ChartColumn,
   trending_up: TrendingUp,
-  week: CalendarDays,
   bolt: Zap,
 
   // ai coach
   auto_awesome: Sparkles,
-  sparkle: Sparkles,
   school: GraduationCap,
   error: TriangleAlert,
-  alert: CircleAlert,
   sentiment_satisfied: Smile,
 
   // auth
-  mail: Mail,
-  lock: Lock,
   visibility: Eye,
   visibility_off: EyeOff,
 
@@ -98,7 +81,6 @@ export const ICONS = {
   // settings / account
   delete: Trash2,
   download: Download,
-  update: RefreshCw,
   changelog: ScrollText,
   edit: PenLine,
 
