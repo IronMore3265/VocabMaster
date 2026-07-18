@@ -1,6 +1,6 @@
 import {
   acceptFriend, addFriendByCode, fetchFriendFreezes, fetchFriends, fetchMutualStreaks,
-  fetchMyCode, giftStreakFreeze, removeFriend,
+  fetchMyCode, fetchMyStats, giftStreakFreeze, removeFriend,
 } from '../api/friends.js';
 import { invalidate } from '../api/queries.js';
 import { avatarTile } from '../avatars.js';
@@ -32,13 +32,15 @@ export function mount(root) {
 
   async function load() {
     try {
-      const [code, lists, streaks, freezes] = await Promise.all([
+      const [code, lists, streaks, freezes, me] = await Promise.all([
         fetchMyCode(),
         fetchFriends(),
         fetchMutualStreaks().catch(() => new Map()),
         fetchFriendFreezes().catch(() => new Map()),
+        // Only needed for "have I hit today's goal", which lights the fires.
+        fetchMyStats().catch(() => null),
       ]);
-      model = { code, ...lists, streaks, freezes };
+      model = { code, ...lists, streaks, freezes, me };
       // Opening the tab counts the current requests as seen (clears the nav dot).
       setSeenRequestCount(lists.incoming.length);
       window.dispatchEvent(new CustomEvent('vm:friends-seen'));
@@ -50,7 +52,8 @@ export function mount(root) {
 
   function paint() {
     if (!model) return;
-    const { code, accepted, incoming, outgoing, streaks, freezes } = model;
+    const { code, accepted, incoming, outgoing, streaks, freezes, me } = model;
+    const meToday = !!(me && me.todayXp >= me.goal);
     body.innerHTML = `
       ${myCodeCard(code)}
 
@@ -60,7 +63,7 @@ export function mount(root) {
 
       ${incoming.length ? section('Requests', incoming.map(requestRow).join('')) : ''}
       ${accepted.length
-        ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id)?.streak ?? 0, freezes.get(f.id))).join(''))
+        ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id), freezes.get(f.id), meToday)).join(''))
         : emptyState('group', 'No friends yet', 'Share your code, or add someone else’s\nto compare progress.')}
       ${outgoing.length ? section('Waiting to be accepted', outgoing.map(pendingRow).join('')) : ''}`;
     bind();
@@ -248,19 +251,28 @@ function myCodeCard(code) {
 const avatar = (f) => avatarTile(f.avatar, f.name, { size: 40 });
 
 /**
- * The mutual streak: days in a row you and this friend BOTH hit your goals.
- * Hidden at zero — a cold flame on every row would make the live ones invisible.
+ * The mutual streak flame: days in a row you and this friend BOTH hit your
+ * goals. Today's completions light it — a cold stroked flame while neither of
+ * you is done yet, flame-coloured on an amber field once one of you has hit
+ * today's goal, and filled solid when you both have. Hidden only when there is
+ * no streak and neither side is done today.
  */
-function streakBadge(days) {
-  if (!days) return '';
+function streakBadge(s = {}, meToday = false) {
+  const days = s.streak ?? 0;
+  const lit = (meToday ? 1 : 0) + (s.friendToday ? 1 : 0);
+  if (!days && !lit) return '';
+  const state = lit === 2 ? 'you’ve both hit today’s goal'
+    : lit === 1 ? 'one of you has hit today’s goal'
+      : 'neither of you has hit today’s goal yet';
   return `
-  <span class="flex items-center gap-1 shrink-0 rounded-full bg-flame/15 px-2 py-0.5" title="${days} day${days === 1 ? '' : 's'} you both hit your goal">
-    ${icon('local_fire_department', 'text-flame text-[14px]')}
-    <span class="font-mono text-[13px] leading-none text-flame">${days}</span>
+  <span class="flex items-center gap-1 shrink-0 rounded-full ${lit ? 'bg-mastery/25' : 'bg-surface-container'} px-2 py-0.5"
+        title="${days} day${days === 1 ? '' : 's'} you both hit your goal — ${state}">
+    ${icon('local_fire_department', `${lit ? 'text-flame' : 'text-outline'} text-[14px]`, lit === 2)}
+    ${days ? `<span class="font-mono text-[13px] leading-none ${lit ? 'text-flame' : 'text-on-surface-variant'}">${days}</span>` : ''}
   </span>`;
 }
 
-function friendRow(f, streak = 0, freezes) {
+function friendRow(f, mutual, freezes, meToday) {
   // A friend can be gifted a freeze only when they hold fewer than the cap of 2.
   const canGift = typeof freezes === 'number' && freezes < 2;
   return `
@@ -268,7 +280,7 @@ function friendRow(f, streak = 0, freezes) {
     <button data-compare="${esc(f.id)}" data-online-only class="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70 transition-opacity">
       ${avatar(f)}
       <span class="text-body-md text-on-surface truncate flex-1">${esc(f.name)}</span>
-      ${streakBadge(streak)}
+      ${streakBadge(mutual, meToday)}
       ${icon('chevron_right', 'text-outline-variant shrink-0')}
     </button>
     ${canGift ? `

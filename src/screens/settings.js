@@ -1,7 +1,8 @@
 import { supabase } from '../supabase.js';
 import { signOut } from '../auth.js';
-import { clearLocalUserData, getSettings, setSettings } from '../store.js';
-import { DAILY_GOALS, deleteAccount, updateDailyGoal } from '../api/account.js';
+import { clearLocalProgressState, clearLocalUserData, getSettings, setSettings } from '../store.js';
+import { DAILY_GOALS, deleteAccount, resetProgress, updateDailyGoal } from '../api/account.js';
+import { clearCache, fetchStreakState } from '../api/queries.js';
 import { fetchMyProfile, fetchMyStats } from '../api/friends.js';
 import { avatarTile } from '../avatars.js';
 import { cancelAllReminders, ensurePermission, rescheduleReminders } from '../lib/notifications.js';
@@ -97,6 +98,9 @@ export function render() {
     <div class="flex flex-col items-center gap-3 mt-2">
       <button data-signout class="flex items-center gap-2 border border-outline-variant rounded-full px-6 py-3 text-on-surface-variant text-body-sm active:scale-95 transition-transform">
         ${icon('logout', 'text-[18px]')} Sign out
+      </button>
+      <button data-reset data-online-only class="flex items-center gap-2 border border-outline-variant rounded-full px-6 py-3 text-on-surface-variant text-body-sm active:scale-95 transition-transform">
+        ${icon('replay', 'text-[18px]')} Reset progress
       </button>
       <button data-delete class="flex items-center gap-2 px-6 py-3 text-error text-body-sm active:scale-95 transition-transform">
         ${icon('delete', 'text-[18px]')} Delete account
@@ -250,6 +254,38 @@ export function mount(root) {
 
   // ---------- changelog ----------
   root.querySelector('[data-changelog]').addEventListener('click', showChangelogSheet);
+
+  // ---------- reset progress ----------
+  // A fresh start without losing the account: server-side history goes, then
+  // the device's mirrors of it (celebration stamps, best times, query cache),
+  // so nothing stale survives into the clean slate.
+  root.querySelector('[data-reset]').addEventListener('click', () => {
+    confirmSheet({
+      title: 'Reset progress?',
+      message:
+        'This erases all your XP, streak, mastery and practice history from the server for a fresh start. Your account, friends and bookmarks are kept. This cannot be undone.',
+      confirmLabel: 'Reset progress',
+      onConfirm: async () => {
+        try {
+          await resetProgress();
+        } catch (err) {
+          showSheet(`
+            <h2 class="text-headline-sm font-headline text-on-surface mb-2">Couldn't reset progress</h2>
+            <p class="text-body-md text-on-surface-variant mb-4">${esc(String(err?.message || err))}</p>
+            <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
+          return;
+        }
+        clearLocalProgressState();
+        clearCache();
+        fetchStreakState().catch(() => {}); // re-prime the (now empty) streak state
+        reschedule();
+        showSheet(`
+          <h2 class="text-headline-sm font-headline text-on-surface mb-2">Fresh start</h2>
+          <p class="text-body-md text-on-surface-variant mb-4">Your progress has been reset. Your account, friends and bookmarks are untouched.</p>
+          <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">Done</button>`);
+      },
+    });
+  });
 
   // ---------- delete account ----------
   root.querySelector('[data-delete]').addEventListener('click', () => {

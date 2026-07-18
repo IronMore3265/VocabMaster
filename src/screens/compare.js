@@ -48,12 +48,13 @@ export function mount(root, friendId) {
         fetchFriendFreezes().catch(() => new Map()),
       ]);
       const friend = (friends.accepted ?? []).find((f) => f.id === friendId) ?? {};
-      const mutual = streaks.get(friendId)?.streak ?? 0;
+      const mutualState = streaks.get(friendId) ?? {};
+      const meToday = me.todayXp >= me.goal;
       const mine = toWeek(mySeries);
       const theirs = toWeek(theirSeries);
 
       body.innerHTML = `
-        ${headerCard(myProfile, friend, them, mutual)}
+        ${headerCard(myProfile, friend, them, mutualState, meToday)}
         ${giftCard(them, freezes.get(friendId))}
         <div class="bg-surface rounded-3xl p-6 flex flex-col gap-3 shadow-card">
           <h3 class="text-headline-sm font-headline text-on-surface">This week</h3>
@@ -136,8 +137,22 @@ function giftCard(them, theirFreezes) {
   </div>`;
 }
 
-function headerCard(myProfile, friend, them, mutual) {
+// The shared fire between the two faces reflects today: cold and stroked while
+// neither of you is done, flame-coloured on an amber field once one of you has
+// hit today's goal, and filled solid when you both have.
+function headerCard(myProfile, friend, them, mutualState, meToday) {
+  const mutual = mutualState.streak ?? 0;
   const live = mutual > 0;
+  const lit = (meToday ? 1 : 0) + (mutualState.friendToday ? 1 : 0);
+  const copy = lit === 2
+    ? `You’ve both hit today’s goal — ${mutual} day${mutual === 1 ? '' : 's'} and counting.`
+    : lit === 1
+      ? (meToday
+        ? `You’re done for today. The fire fills when ${esc(them.name)} hits their goal too.`
+        : `${esc(them.name)} is done for today — hit your goal to fill the fire.`)
+      : live
+        ? `You’ve both hit your goal ${mutual} day${mutual === 1 ? '' : 's'} running. Hit today’s goals to light the fire.`
+        : `Both hit your daily goal on the same day to start a streak with ${esc(them.name)}.`;
   return `
   <section class="bg-surface rounded-3xl p-6 shadow-card">
     <div class="relative flex items-center justify-center gap-2">
@@ -146,10 +161,10 @@ function headerCard(myProfile, friend, them, mutual) {
         <span class="text-body-sm text-on-surface truncate max-w-full">You</span>
       </div>
       <div class="flex flex-col items-center gap-1 shrink-0 px-2">
-        <div class="w-14 h-14 rounded-full flex items-center justify-center ${live ? 'bg-flame/15' : 'bg-surface-container'}">
-          ${icon('local_fire_department', live ? 'text-flame text-[30px]' : 'text-outline text-[30px]')}
+        <div class="w-14 h-14 rounded-full flex items-center justify-center ${lit ? 'bg-mastery/25' : 'bg-surface-container'}">
+          ${icon('local_fire_department', `${lit ? 'text-flame' : 'text-outline'} text-[30px]`, lit === 2)}
         </div>
-        <span class="font-mono text-[15px] leading-none ${live ? 'text-flame' : 'text-on-surface-variant'}">${mutual}</span>
+        <span class="font-mono text-[15px] leading-none ${live || lit ? 'text-flame' : 'text-on-surface-variant'}">${mutual}</span>
         <span class="text-label-sm text-on-surface-variant">day${mutual === 1 ? '' : 's'}</span>
       </div>
       <div class="flex flex-col items-center gap-2 flex-1 min-w-0">
@@ -157,11 +172,7 @@ function headerCard(myProfile, friend, them, mutual) {
         <span class="text-body-sm text-on-surface truncate max-w-full">${esc(them.name)}</span>
       </div>
     </div>
-    <p class="text-body-sm text-on-surface-variant text-center mt-4">
-      ${live
-        ? `You’ve both hit your goal ${mutual} day${mutual === 1 ? '' : 's'} running.`
-        : `Both hit your daily goal on the same day to start a streak with ${esc(them.name)}.`}
-    </p>
+    <p class="text-body-sm text-on-surface-variant text-center mt-4">${copy}</p>
   </section>`;
 }
 

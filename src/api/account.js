@@ -56,6 +56,18 @@ export async function deleteAccount() {
   if (error) throw error;
 }
 
+/**
+ * Erases the signed-in user's learning history — attempts, per-word progress,
+ * frozen days, AI sessions — via the reset_progress() RPC, and restores the
+ * streak-freeze inventory. The account, profile, friendships, gifts and
+ * bookmarks all survive; callers must also clear device-local progress state
+ * (see clearLocalProgressState in store.js) and drop the query cache.
+ */
+export async function resetProgress() {
+  const { error } = await supabase.rpc('reset_progress');
+  if (error) throw error;
+}
+
 export const DISPLAY_NAME_MAX = 40;
 
 /**

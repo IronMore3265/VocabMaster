@@ -572,6 +572,34 @@ input, textarea {
   100% { opacity: 0; transform: translateY(105vh) rotate(20deg); }
 }
 
+/* Friend streak: the two avatars slide in from the edges, come together until
+   they nearly touch over the (still unlit) fire, then part to their resting
+   spots as the fire ignites between them and keeps flickering. The rays and the
+   copy wait for the ignition beat. Base styles are the resting look (avatars
+   parted, fire lit), so reduced-motion shows the finished scene. */
+.friend-cel .fs-left { animation: fsMeetL 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.friend-cel .fs-right { animation: fsMeetR 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes fsMeetL {
+  0% { opacity: 0; transform: translateX(-110px) scale(0.85); }
+  42%, 62% { opacity: 1; transform: translateX(48px) scale(1.05); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes fsMeetR {
+  0% { opacity: 0; transform: translateX(110px) scale(0.85); }
+  42%, 62% { opacity: 1; transform: translateX(-48px) scale(1.05); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+/* The avatars pass over the fire, so they stack above it until they part. */
+.friend-cel .fs-side { position: relative; z-index: 1; }
+.friend-cel .fs-fire {
+  transform-origin: 50% 90%;
+  animation: flameIgnite 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.95s both,
+             flameFlicker 1.8s ease-in-out 1.55s infinite;
+}
+.friend-cel .streak-rays { animation-delay: 1.8s; }
+.friend-cel .streak-rays line { animation-delay: 1.15s; }
+.friend-cel .streak-copy { animation-delay: 1.25s; }
+
 /* ---------- Route view transitions ---------- */
 ::view-transition-old(root), ::view-transition-new(root) {
   animation-duration: 0.22s;

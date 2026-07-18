@@ -2,7 +2,6 @@ import { lookupWord } from '../api/dictionary.js';
 import { fetchPackWords, fetchPacks, recordAttempt } from '../api/queries.js';
 import { navigate } from '../router.js';
 import { haptic, playAudio } from '../lib/feedback.js';
-import { runPostSessionCelebrations } from '../lib/streakCelebration.js';
 import { posLabel } from '../lib/models.js';
 import { esc, icon, progressBar, setProgress, spinner, subHeader } from '../ui.js';
 
@@ -27,17 +26,9 @@ export function mount(root, packId) {
   let words = [];
   let index = 0;
   let flipped = false;
-  // Flashcards are pure review: each card is logged once, the first time it's
-  // reached, so a full pass fills the pack's Progress bar (there's no right/wrong).
-  const seen = new Set();
+  let correctCount = 0;
   // Frame elements, resolved once drawFrame() has run.
   let els = null;
-
-  const recordSeen = (i) => {
-    if (seen.has(i)) return;
-    seen.add(i);
-    recordAttempt({ wordId: words[i].id, packId: id, type: 'flashcard', correct: true });
-  };
 
   Promise.all([fetchPacks(), fetchPackWords(id)])
     .then(([packs, w]) => {
@@ -139,7 +130,6 @@ export function mount(root, packId) {
     const word = words[index];
     const examples = (word.example_sentences ?? []).slice(0, 3);
 
-    recordSeen(index);
     els.counter.textContent = `${index + 1} / ${words.length}`;
     setProgress(els.progress, (index + 1) / words.length);
 
@@ -202,32 +192,38 @@ export function mount(root, packId) {
     els.scrollHint.classList.toggle('hidden', !overflows);
   }
 
-  // No right/wrong grading — just navigation. When flipped, the primary button
-  // advances (or finishes on the last card); when facing the word, it flips.
+  // Facing the word: prev / Flip Card / next. Flipped: self-grade — a red
+  // "Again" and a green "Got it" — which is what logs the review (2 XP for a
+  // know, 1 for a miss; the server treats flashcards as review-only, so neither
+  // touches the SRS box).
   function drawControls() {
     const el = els.controls;
     const round = `w-14 h-14 rounded-full bg-surface shadow-card flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40`;
-    const isLast = index === words.length - 1;
-    const mid = flipped
-      ? (isLast
-        ? `${icon('check', 'text-[22px]')}<span class="text-[16px] font-headline">Finish</span>`
-        : `${icon('arrow_forward', 'text-[22px]')}<span class="text-[16px] font-headline">Next</span>`)
-      : `${icon('flip', 'text-[22px]')}<span class="text-[16px] font-headline">Flip Card</span>`;
-    el.innerHTML = `
+    if (flipped) {
+      el.innerHTML = `
+      <div class="grid grid-cols-2 gap-4">
+        <button data-again class="h-14 rounded-full bg-error-container text-on-error-container flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+          ${icon('replay', 'text-[22px]')}<span class="text-[16px] font-headline">Again</span>
+        </button>
+        <button data-got class="h-14 rounded-full bg-secondary text-on-secondary flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+          ${icon('check', 'text-[22px]')}<span class="text-[16px] font-headline">Got it</span>
+        </button>
+      </div>`;
+      el.querySelector('[data-again]').addEventListener('click', () => advance(false));
+      el.querySelector('[data-got]').addEventListener('click', () => advance(true));
+    } else {
+      el.innerHTML = `
       <div class="flex items-center justify-center gap-4">
         <button data-prev class="${round}" ${index === 0 ? 'disabled' : ''}>${icon('arrow_back', 'text-[24px] text-on-surface')}</button>
-        <button data-mid class="flex-1 h-14 rounded-full bg-primary text-on-primary flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
-          ${mid}
+        <button data-flipbtn class="flex-1 h-14 rounded-full bg-primary text-on-primary flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+          ${icon('flip', 'text-[22px]')}<span class="text-[16px] font-headline">Flip Card</span>
         </button>
-        <button data-next class="${round}" ${isLast ? 'disabled' : ''}>${icon('arrow_forward', 'text-[24px] text-on-surface')}</button>
+        <button data-next class="${round}" ${index === words.length - 1 ? 'disabled' : ''}>${icon('arrow_forward', 'text-[24px] text-on-surface')}</button>
       </div>`;
-    el.querySelector('[data-mid]').addEventListener('click', () => {
-      if (!flipped) toggleFlip();
-      else if (isLast) finish();
-      else go(1);
-    });
-    el.querySelector('[data-prev]').addEventListener('click', () => go(-1));
-    el.querySelector('[data-next]').addEventListener('click', () => go(1));
+      el.querySelector('[data-flipbtn]').addEventListener('click', toggleFlip);
+      el.querySelector('[data-prev]').addEventListener('click', () => go(-1));
+      el.querySelector('[data-next]').addEventListener('click', () => go(1));
+    }
   }
 
   function go(delta) {
@@ -237,24 +233,17 @@ export function mount(root, packId) {
     drawWord();
   }
 
-  function finish() {
-    haptic.success();
-    const n = words.length;
-    body.innerHTML = `
-      <div class="flex-1 flex flex-col items-center justify-center gap-5 text-center px-4">
-        <div class="w-24 h-24 rounded-full bg-primary-fixed flex items-center justify-center">
-          ${icon('style', 'text-primary text-[44px]')}
-        </div>
-        <h1 class="text-headline-lg font-headline text-on-surface">Nice reviewing!</h1>
-        <p class="text-body-md text-on-surface-variant">You reviewed ${n} word${n === 1 ? '' : 's'} in this pack.</p>
-        <button data-done class="mt-2 bg-primary text-on-primary rounded-full px-8 py-3.5 text-[16px] font-headline active:scale-[0.98] transition-transform">Done</button>
-      </div>`;
-    body.querySelector('[data-done]').addEventListener('click', () => {
-      if (history.length > 1) history.back();
-      else navigate('#/library');
-    });
-    // A full review can push today over its XP goal or across a level.
-    runPostSessionCelebrations();
+  function advance(gotIt) {
+    gotIt ? haptic.light() : haptic.medium();
+    recordAttempt({ wordId: words[index].id, packId: id, type: 'flashcard', correct: gotIt });
+    if (gotIt) correctCount++;
+    if (index === words.length - 1) {
+      // The results screen runs the post-session celebrations.
+      navigate(`#/results/${correctCount}/${words.length}`, { replace: true });
+      return;
+    }
+    index++;
+    drawWord();
   }
 
   // Rotating the device changes how much room the card has to grow into.

@@ -2,6 +2,16 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.0',
+    date: '2026-07-18',
+    notes: [
+      'Flashcards grade again: after you flip a card you choose the red “Again” or the green “Got it”, like before. Your choice sets the XP (2 for a know, 1 for a miss) and the session ends with your score — mastery still comes only from the graded exercises.',
+      'You can now reset your progress from Settings without deleting your account — XP, streak, mastery and history start fresh while your account, friends and bookmarks stay.',
+      'The friend-streak fire now shows who’s done today: it sits cold until one of you hits your daily goal — then it glows on an amber field — and fills solid once you both have. On the friend list and on Compare.',
+      'New celebration when a friend streak grows: your avatars slide together and the fire ignites between you. Whoever completes the day’s pair sees it right after their session.',
+    ],
+  },
+  {
     version: '7.1.2',
     date: '2026-07-18',
     notes: [

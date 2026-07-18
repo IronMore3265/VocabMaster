@@ -85,7 +85,9 @@ export function fetchFriends() {
  * The mutual streak — consecutive days both you and the friend practised — for
  * every accepted friend at once. One RPC rather than one per row: the Friends
  * tab renders a list. Friends with no shared days come back as 0, so callers can
- * index the Map without a missing-key case.
+ * index the Map without a missing-key case. `friendToday` is whether the friend
+ * has already hit their own goal today (the caller's side is client-side
+ * knowledge: fetchMyStats().todayXp >= goal), which drives the fire's lit state.
  */
 export function fetchMutualStreaks() {
   return cached('friends:mutual', async () => {
@@ -93,7 +95,11 @@ export function fetchMutualStreaks() {
     if (error) throw error;
     return new Map((data ?? []).map((r) => [
       r.out_friend_id,
-      { streak: Number(r.out_streak ?? 0), lastMutualDay: r.out_last_mutual_day },
+      {
+        streak: Number(r.out_streak ?? 0),
+        lastMutualDay: r.out_last_mutual_day,
+        friendToday: !!r.out_friend_today,
+      },
     ]));
   }, FRIEND_TTL);
 }

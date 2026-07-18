@@ -81,6 +81,20 @@ export function setLevelCelebrated(level) {
   save('level.celebrated', level);
 }
 
+// ---------- friend-streak celebration (per friend, once per day) ----------
+// The two-avatars-and-a-fire moment fires when a mutual day with a friend
+// completes; this stamps which friends were celebrated on which day so the
+// post-session check never replays one.
+export function getFriendStreaksCelebrated(dayKey) {
+  const v = load('friendStreak.celebrated', null);
+  return v && v.day === dayKey ? v.ids ?? [] : [];
+}
+
+export function addFriendStreakCelebrated(dayKey, friendId) {
+  const ids = getFriendStreaksCelebrated(dayKey);
+  save('friendStreak.celebrated', { day: dayKey, ids: [...new Set([...ids, friendId])] });
+}
+
 // ---------- freeze-gift celebration (watermark) ----------
 // Realtime shows gifts that arrive while the app is open; this stamps the
 // newest gift already celebrated so the boot/resume check only surfaces ones
@@ -148,6 +162,17 @@ export function clearRecentSearches() {
   save('dictionary.recent', []);
 }
 
+// ---------- progress reset ----------
+// Device state that mirrors server progress; cleared when the server-side
+// history is reset so stale celebration stamps and best times don't survive
+// the fresh start.
+export function clearLocalProgressState() {
+  save('streak.celebratedDay', '');
+  save('level.celebrated', 0);
+  save('practice.bestTimes', {});
+  save('friendStreak.celebrated', null);
+}
+
 // ---------- account deletion ----------
 // Wipes everything tied to the person, leaving device preferences (theme,
 // sound, haptics, onboarding) alone — those belong to the device, not the
@@ -157,6 +182,5 @@ export function clearLocalUserData() {
   clearRememberedEmail();
   save('ai.introSeen', false);
   save('dictionary.recent', []);
-  save('level.celebrated', 0);
-  save('practice.bestTimes', {});
+  clearLocalProgressState();
 }

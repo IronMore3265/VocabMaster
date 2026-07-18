@@ -7,10 +7,14 @@ import { supabase } from '../supabase.js';
 import {
   dailyXp, fetchAttemptEvents, fetchStreakState, invalidate, levelForXp, localDayKey, totalXp,
 } from '../api/queries.js';
-import { fetchFreezeGiftsSince } from '../api/friends.js';
 import {
-  getFreezeGiftsSeenAt, getLevelCelebrated, getSettings, getStreakCelebratedDay,
-  setFreezeGiftsSeenAt, setLevelCelebrated, setStreakCelebratedDay,
+  fetchFreezeGiftsSince, fetchFriends, fetchMutualStreaks, fetchMyProfile,
+} from '../api/friends.js';
+import { avatarTile } from '../avatars.js';
+import {
+  addFriendStreakCelebrated, getFreezeGiftsSeenAt, getFriendStreaksCelebrated,
+  getLevelCelebrated, getSettings, getStreakCelebratedDay, setFreezeGiftsSeenAt,
+  setLevelCelebrated, setStreakCelebratedDay,
 } from '../store.js';
 
 // A ring of rays behind the glyph. Each line runs inner→outer with pathLength=1,
@@ -204,6 +208,80 @@ export async function checkMissedFreezeGifts() {
 }
 
 /**
+ * Full-screen friend-streak moment: the two avatars slide together, nearly
+ * touch, then part as the shared fire ignites between them (see .friend-cel in
+ * style.css). Shown on the device whose session completed the mutual day — the
+ * last of the pair to hit their goal.
+ */
+export function showFriendStreakCelebration({ me = {}, friend = {}, streak = 1 } = {}) {
+  return new Promise((resolve) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'streak-cel friend-cel fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 px-8 text-center overflow-hidden';
+    wrap.style.background = 'radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--color-flame) 20%, var(--color-background)), var(--color-background) 70%)';
+    wrap.innerHTML = `
+      <div class="relative z-10 flex items-center justify-center" style="width:300px;height:300px">
+        ${rays()}
+        <div class="relative z-10 flex items-center justify-center gap-3">
+          <div class="fs-side fs-left">${avatarTile(me.avatar, me.display_name || 'You', { size: 84 })}</div>
+          <div class="fs-fire flex items-center justify-center">${icon('local_fire_department', 'text-flame', true)}</div>
+          <div class="fs-side fs-right">${avatarTile(friend.avatar, friend.name, { size: 84 })}</div>
+        </div>
+      </div>
+      <div class="streak-copy relative z-10 flex flex-col items-center gap-1">
+        <p class="text-headline-lg font-headline text-on-surface">${streak} day friend streak!</p>
+        <p class="text-body-md text-on-surface-variant">You and ${esc(friend.name || 'your friend')} both hit your goals today.</p>
+      </div>
+      <button data-continue class="streak-copy relative z-10 mt-2 bg-primary text-on-primary rounded-full px-10 py-3.5 text-[16px] font-headline active:scale-[0.98] transition-transform">Continue</button>`;
+    document.body.appendChild(wrap);
+
+    const svg = wrap.querySelector('.fs-fire svg');
+    if (svg) { svg.style.width = '76px'; svg.style.height = '76px'; }
+
+    haptic.success();
+
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      wrap.style.transition = 'opacity 0.25s ease';
+      wrap.style.opacity = '0';
+      setTimeout(() => { wrap.remove(); resolve(); }, 250);
+    };
+    wrap.querySelector('[data-continue]').addEventListener('click', close);
+  });
+}
+
+/**
+ * Fires the friend-streak screen for each mutual day that completed today and
+ * hasn't been celebrated yet. Post-session only, and gated on the user's own
+ * goal being met — a mutual day cannot complete without it — so the animation
+ * lands on whoever finished the pair off. Per-friend once a day.
+ */
+async function maybeCelebrateFriendStreaks() {
+  try {
+    const goal = getSettings().dailyGoal;
+    const todayKey = localDayKey(new Date());
+    const events = await fetchAttemptEvents();
+    if ((dailyXp(events).get(todayKey) ?? 0) < goal) return;
+
+    invalidate('friends:mutual');
+    const [streaks, lists, me] = await Promise.all([
+      fetchMutualStreaks(),
+      fetchFriends(),
+      fetchMyProfile().catch(() => ({})),
+    ]);
+    const seen = getFriendStreaksCelebrated(todayKey);
+    for (const f of lists.accepted ?? []) {
+      const s = streaks.get(f.id);
+      if (!s || !s.streak || s.lastMutualDay !== todayKey || seen.includes(f.id)) continue;
+      // Stamped before showing, so a mid-animation crash can't replay it.
+      addFriendStreakCelebrated(todayKey, f.id);
+      await showFriendStreakCelebration({ me, friend: f, streak: s.streak });
+    }
+  } catch { /* offline or signed out — best-effort */ }
+}
+
+/**
  * Seeds the "highest level already celebrated" baseline to the user's current
  * level on first run (or after the feature ships), so returning users don't get a
  * spurious level-up popup for a level they reached long ago. Called at boot.
@@ -233,10 +311,12 @@ async function maybeCelebrateLevelUp() {
 
 /**
  * Post-session celebrations, in order: the streak fire (if today just hit its
- * goal), then the level-up screen (if lifetime XP crossed a level). Called from
- * the results screen and the flashcards review-complete screen.
+ * goal), then the level-up screen (if lifetime XP crossed a level), then the
+ * friend-streak fire for any mutual day this session completed. Called from
+ * the results screen.
  */
 export async function runPostSessionCelebrations() {
   await maybeCelebrateStreak();
   await maybeCelebrateLevelUp();
+  await maybeCelebrateFriendStreaks();
 }
