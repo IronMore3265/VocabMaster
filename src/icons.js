@@ -7,7 +7,7 @@ import {
   Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
   BookmarkCheck, BookmarkPlus, Check, CheckCheck, ChevronRight, CircleCheckBig,
   CircleUserRound, CircleX, Combine, Copy, Delete, Download, Eye, EyeOff, Flame,
-  GraduationCap, Hand, History, Hourglass, Layers, Library, LogOut, Moon,
+  Gift, GraduationCap, Hand, History, Hourglass, Layers, Library, LogOut, Moon,
   Palette, PenLine, Play, RefreshCw, RotateCcw, ScrollText, Search, Settings,
   Smile, Snowflake, Sparkles, Sun, SunMoon, Target, TextAlignStart, TrendingUp,
   Trash2, TriangleAlert, UserPlus, Users, Volume2, X, Zap,
@@ -77,6 +77,7 @@ export const ICONS = {
   person_add: UserPlus,
   content_copy: Copy,
   backspace: Delete,
+  gift: Gift, // gift a streak freeze to a friend
 
   // revision
   revise: Hourglass,

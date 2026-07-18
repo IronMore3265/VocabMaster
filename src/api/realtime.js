@@ -9,7 +9,7 @@
 // wake for relevant changes.
 import { supabase } from '../supabase.js';
 import { invalidate } from './queries.js';
-import { notifyFriendRequest } from '../lib/notifications.js';
+import { notifyFreezeGift, notifyFriendRequest } from '../lib/notifications.js';
 
 let channel = null;
 let currentUserId = null;
@@ -32,7 +32,27 @@ function open() {
         }
       },
     )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'freeze_gifts', filter: `recipient_id=eq.${currentUserId}` },
+      (payload) => {
+        // A friend gave us a freeze: refresh the count and raise a heads-up.
+        invalidate('streak-state', 'friends:freezes');
+        window.dispatchEvent(new CustomEvent('vm:freeze-received'));
+        announceGift(payload.new?.sender_id);
+      },
+    )
     .subscribe();
+}
+
+async function announceGift(senderId) {
+  let name = 'A friend';
+  try {
+    const { data } = await supabase
+      .from('profiles').select('display_name').eq('id', senderId).single();
+    if (data?.display_name) name = data.display_name;
+  } catch { /* name is a nicety; the notification still fires without it */ }
+  notifyFreezeGift(name);
 }
 
 async function announceRequest(friendId) {

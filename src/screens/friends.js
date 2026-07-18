@@ -1,5 +1,6 @@
 import {
-  acceptFriend, addFriendByCode, fetchFriends, fetchMutualStreaks, fetchMyCode, removeFriend,
+  acceptFriend, addFriendByCode, fetchFriendFreezes, fetchFriends, fetchMutualStreaks,
+  fetchMyCode, giftStreakFreeze, removeFriend,
 } from '../api/friends.js';
 import { invalidate } from '../api/queries.js';
 import { avatarTile } from '../avatars.js';
@@ -31,12 +32,13 @@ export function mount(root) {
 
   async function load() {
     try {
-      const [code, lists, streaks] = await Promise.all([
+      const [code, lists, streaks, freezes] = await Promise.all([
         fetchMyCode(),
         fetchFriends(),
         fetchMutualStreaks().catch(() => new Map()),
+        fetchFriendFreezes().catch(() => new Map()),
       ]);
-      model = { code, ...lists, streaks };
+      model = { code, ...lists, streaks, freezes };
       // Opening the tab counts the current requests as seen (clears the nav dot).
       setSeenRequestCount(lists.incoming.length);
       window.dispatchEvent(new CustomEvent('vm:friends-seen'));
@@ -48,7 +50,7 @@ export function mount(root) {
 
   function paint() {
     if (!model) return;
-    const { code, accepted, incoming, outgoing, streaks } = model;
+    const { code, accepted, incoming, outgoing, streaks, freezes } = model;
     body.innerHTML = `
       ${myCodeCard(code)}
 
@@ -58,7 +60,7 @@ export function mount(root) {
 
       ${incoming.length ? section('Requests', incoming.map(requestRow).join('')) : ''}
       ${accepted.length
-        ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id)?.streak ?? 0)).join(''))
+        ? section('Your friends', accepted.map((f) => friendRow(f, streaks.get(f.id)?.streak ?? 0, freezes.get(f.id))).join(''))
         : emptyState('group', 'No friends yet', 'Share your code, or add someone else’s\nto compare progress.')}
       ${outgoing.length ? section('Waiting to be accepted', outgoing.map(pendingRow).join('')) : ''}`;
     bind();
@@ -95,6 +97,19 @@ export function mount(root) {
         });
       }));
 
+    body.querySelectorAll('[data-gift]').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-gift');
+        const f = model?.accepted.find((x) => x.id === id);
+        confirmSheet({
+          title: 'Gift a streak freeze?',
+          message: `${f ? f.name : 'Your friend'} gets one streak freeze to protect a missed day. You can gift them again in two weeks.`,
+          confirmLabel: 'Gift freeze',
+          onConfirm: () => gift(id),
+        });
+      }));
+
     body.querySelectorAll('[data-compare]').forEach((btn) =>
       btn.addEventListener('click', () => navigate(`#/friends/compare/${btn.getAttribute('data-compare')}`)));
   }
@@ -112,6 +127,23 @@ export function mount(root) {
     } catch (err) {
       errorSheet(err);
       await load(); // reconcile from the server on failure
+    }
+  }
+
+  async function gift(id) {
+    const f = model?.accepted.find((x) => x.id === id);
+    try {
+      await giftStreakFreeze(id);
+      haptic.success();
+      // Reflect the recipient's new count so the button hides once they hit the cap.
+      if (model?.freezes) model.freezes.set(id, Math.min(2, (model.freezes.get(id) ?? 0) + 1));
+      paint();
+      showSheet(`
+        <h2 class="text-headline-sm font-headline text-on-surface mb-2">Freeze sent ❄️</h2>
+        <p class="text-body-md text-on-surface-variant mb-4">${esc(f ? f.name : 'Your friend')} now has an extra streak freeze. Nice one.</p>
+        <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">Done</button>`);
+    } catch (err) {
+      errorSheet(err);
     }
   }
 
@@ -228,7 +260,9 @@ function streakBadge(days) {
   </span>`;
 }
 
-function friendRow(f, streak = 0) {
+function friendRow(f, streak = 0, freezes) {
+  // A friend can be gifted a freeze only when they hold fewer than the cap of 2.
+  const canGift = typeof freezes === 'number' && freezes < 2;
   return `
   <div class="flex items-center gap-3 py-3 border-b border-progress-track last:border-0">
     <button data-compare="${esc(f.id)}" class="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70 transition-opacity">
@@ -237,6 +271,11 @@ function friendRow(f, streak = 0) {
       ${streakBadge(streak)}
       ${icon('chevron_right', 'text-outline-variant shrink-0')}
     </button>
+    ${canGift ? `
+    <button data-gift="${esc(f.id)}" aria-label="Gift ${esc(f.name)} a streak freeze" title="Gift a streak freeze"
+      class="p-2 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">
+      ${icon('gift', 'text-[18px]')}
+    </button>` : ''}
     <button data-remove="${esc(f.id)}" aria-label="Remove ${esc(f.name)}" class="p-2 rounded-full text-on-surface-variant active:opacity-70 transition-opacity shrink-0">
       ${icon('close', 'text-[18px]')}
     </button>

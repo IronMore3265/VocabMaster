@@ -2,6 +2,16 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '6.1.0',
+    date: '2026-07-18',
+    notes: [
+      'Streak freezes now show as two snowflake pips above your streak — blue when a freeze is ready, muted once one has been spent — and your streak flame is now warm amber.',
+      'You can gift a streak freeze to a friend to protect their streak. The gift appears on their friend row and Compare screen whenever they have room, and you can send one to each friend every two weeks.',
+      'Get a heads-up the moment a friend gives you a streak freeze.',
+      'Fixed the practice-reminder switch turning itself back off: it now stays where you set it, and reminders schedule reliably on newer Android versions.',
+    ],
+  },
+  {
     version: '6.0.0',
     date: '2026-07-18',
     notes: [

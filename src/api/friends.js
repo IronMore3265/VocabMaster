@@ -98,6 +98,19 @@ export function fetchMutualStreaks() {
   }, FRIEND_TTL);
 }
 
+/**
+ * Each accepted friend's current streak-freeze count, so the UI can offer a gift
+ * only to friends below the hold cap of 2 (Duolingo-style). Friends missing from
+ * the map are treated as full by callers.
+ */
+export function fetchFriendFreezes() {
+  return cached('friends:freezes', async () => {
+    const { data, error } = await supabase.rpc('friend_freezes');
+    if (error) throw error;
+    return new Map((data ?? []).map((r) => [r.out_friend_id, Number(r.out_freezes ?? 0)]));
+  }, FRIEND_TTL);
+}
+
 /** Headline stats for one accepted friend. The RPC re-checks the friendship. */
 export function fetchFriendStats(friendId) {
   return cached(`friends:stats:${friendId}`, async () => {
@@ -211,6 +224,17 @@ export async function removeFriend(friendId) {
   const { error } = await supabase.rpc('remove_friend', { p_friend_id: friendId });
   if (error) throw new Error(friendlyError(error));
   invalidate('friends:');
+}
+
+/**
+ * Give one streak freeze to an accepted friend. The RPC enforces the friendship, the
+ * once-per-two-weeks-per-friend cooldown, and the recipient's hold cap, raising a
+ * human-readable message for each — surfaced via friendlyError.
+ */
+export async function giftStreakFreeze(friendId) {
+  const { error } = await supabase.rpc('gift_streak_freeze', { p_friend_id: friendId });
+  if (error) throw new Error(friendlyError(error));
+  invalidate('friends:freezes');
 }
 
 // The RPCs raise with messages meant for humans; surface those and keep the

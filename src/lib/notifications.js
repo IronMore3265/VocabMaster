@@ -8,6 +8,7 @@ import { getSettings } from '../store.js';
 const STREAK_ID = 1001; // daily "keep your streak" reminder
 const NUDGE_ID = 1002; // gentle friends nudge, a bit later
 const REQUEST_ID = 2001; // "someone added you" heads-up (fires immediately)
+const GIFT_ID = 2002; // "someone gave you a streak freeze" heads-up
 
 let pluginPromise = null;
 
@@ -96,6 +97,26 @@ export async function notifyFriendRequest(name) {
         id: REQUEST_ID,
         title: 'New friend request',
         body: `${name} wants to connect on VocabMaster.`,
+        schedule: { at: new Date(Date.now() + 500) },
+      }],
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+/** Fires immediately when a friend gifts you a streak freeze while the app is open. */
+export async function notifyFreezeGift(name) {
+  const LN = await plugin();
+  if (!LN) return;
+  if (!getSettings().notifications) return;
+  try {
+    if (!(await ensurePermission())) return;
+    await LN.schedule({
+      notifications: [{
+        id: GIFT_ID,
+        title: 'You got a streak freeze ❄️',
+        body: `${name} gave you a streak freeze to protect your streak.`,
         schedule: { at: new Date(Date.now() + 500) },
       }],
     });

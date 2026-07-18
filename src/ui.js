@@ -263,12 +263,12 @@ export function xpLineChart(mine, theirs, { myLabel = 'You', theirLabel = 'Them'
  * `countTo` (a number) makes the value tick up from zero once mounted — call
  * bindCountUps() on the container afterwards. Without it, `value` renders as-is.
  */
-export function statTile({ iconName, value, label, countTo, suffix = '' }) {
+export function statTile({ iconName, value, label, countTo, suffix = '', iconClass = 'text-primary text-[22px]' }) {
   const animated = typeof countTo === 'number';
   const attrs = animated ? ` data-count-to="${countTo}" data-suffix="${esc(suffix)}"` : '';
   return `
   <div class="flex-1 bg-surface rounded-lg p-4 flex flex-col gap-1.5 shadow-card">
-    ${icon(iconName, 'text-primary text-[22px]')}
+    ${icon(iconName, iconClass)}
     <span${attrs} class="font-mono text-[22px] leading-7 text-on-surface">${esc(animated ? `0${suffix}` : value)}</span>
     <span class="text-label-sm text-on-surface-variant">${esc(label)}</span>
   </div>`;

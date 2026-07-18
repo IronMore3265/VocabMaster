@@ -13,6 +13,18 @@ import {
 
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+// A streak-freeze pip: a blue snowflake in a circle when the freeze is available,
+// muted once it has been spent. Two of these sit above the streak tiles (max hold 2).
+function freezePip(available) {
+  return `
+  <div class="flex-1 flex justify-center">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center ${available ? 'bg-primary/15' : 'bg-surface-container'}"
+      title="${available ? 'Streak freeze ready — covers a missed day' : 'Streak freeze spent'}">
+      ${icon('ac_unit', available ? 'text-primary text-[16px]' : 'text-outline text-[16px]')}
+    </div>
+  </div>`;
+}
+
 // A compact 7-day XP bar chart with the daily goal drawn across it.
 function weeklyChart(byDay, goal) {
   const days = dailyActivity(byDay, 7);
@@ -104,13 +116,10 @@ export function mount(root) {
       </div>
     </div>
 
-    <div class="flex gap-3">
-      ${statTile({ iconName: 'local_fire_department', countTo: streak, label: 'DAY STREAK' })}
+    <div class="flex gap-3">${freezePip(0 < freezes)}${freezePip(1 < freezes)}</div>
+    <div class="flex gap-3 -mt-1.5">
+      ${statTile({ iconName: 'local_fire_department', countTo: streak, label: 'DAY STREAK', iconClass: 'text-flame text-[22px]' })}
       ${statTile({ iconName: 'bolt', countTo: longest, label: 'BEST STREAK' })}
-    </div>
-    <div class="flex items-center justify-center gap-1.5 text-label-sm text-on-surface-variant -mt-1">
-      ${icon('ac_unit', 'text-primary text-[15px]')}
-      <span class="font-mono">${freezes}</span> streak freeze${freezes === 1 ? '' : 's'} · covers a missed day
     </div>
 
     <div class="flex gap-3">

@@ -128,22 +128,20 @@ export function mount(root) {
   const reminderTime = root.querySelector('[data-reminder-time]');
   bindToggles(root, async (key, on) => {
     if (key === 'notifications') {
-      if (on) {
-        const granted = await ensurePermission();
-        if (!granted) {
-          // Permission denied at the OS level — flip the switch back.
-          const btn = root.querySelector('[data-toggle="notifications"]');
-          btn?.click();
-          showSheet(`
-            <h2 class="text-headline-sm font-headline text-on-surface mb-2">Notifications are off</h2>
-            <p class="text-body-md text-on-surface-variant mb-4">Enable notifications for VocabMaster in your device settings to get streak reminders.</p>
-            <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
-          return;
-        }
-      }
+      // Honour the user's choice immediately and keep the switch where they left it —
+      // never flip it back. If the OS hasn't granted permission we simply guide them
+      // to enable it; the reminder scheduler already no-ops safely until it's granted.
       setSettings({ notifications: on });
       reminderTime?.classList.toggle('hidden', !on);
-      on ? reschedule() : cancelAllReminders();
+      if (!on) { cancelAllReminders(); return; }
+      if (await ensurePermission()) {
+        reschedule();
+      } else {
+        showSheet(`
+          <h2 class="text-headline-sm font-headline text-on-surface mb-2">Allow notifications</h2>
+          <p class="text-body-md text-on-surface-variant mb-4">Practice reminders are on, but VocabMaster can’t send them until you allow notifications for it in your device settings.</p>
+          <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
+      }
       return;
     }
     setSettings({ [key]: on });
