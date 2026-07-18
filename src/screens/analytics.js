@@ -129,7 +129,7 @@ export function mount(root) {
           <span class="text-label-sm uppercase text-on-surface-variant">Day streak</span>
         </div>
       </div>
-      <span class="inline-flex items-center gap-1.5 rounded-full bg-flame-dim px-3 py-1.5 text-label-md text-flame shrink-0">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-flame/15 px-3 py-1.5 text-label-md text-flame shrink-0">
         ${icon('flame_kindling', 'text-[16px]')} Best ${longest}
       </span>
     </div>

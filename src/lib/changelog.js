@@ -2,6 +2,14 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.1.1',
+    date: '2026-07-18',
+    notes: [
+      'Fixed offline awareness not working on the phone: the offline bar and the greyed-out connection-only features now trigger reliably on Android, not just in a browser.',
+      'The “Best” streak badge on Analytics is now easy to read in light mode.',
+    ],
+  },
+  {
     version: '7.1.0',
     date: '2026-07-18',
     notes: [

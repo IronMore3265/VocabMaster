@@ -1,16 +1,26 @@
 // Offline awareness. Toggles an `is-offline` class on <html> — which greys and
 // makes untappable every [data-online-only] entry point (see style.css) — and
-// shows a bottom banner. Uses the web navigator.onLine + online/offline events;
-// these fire inside the Android WebView too, so no Capacitor Network plugin is
-// needed (the app prefers platform APIs over extra plugins).
+// shows a bottom banner.
+//
+// On the web we use navigator.onLine + the online/offline events. Inside the
+// Android WebView those are unreliable — navigator.onLine is often stale and the
+// DOM events frequently never fire — so on native we drive everything off
+// @capacitor/network (real connectivity + native change events). This is the one
+// place a Capacitor plugin earns its keep over the web platform API.
+import { Capacitor } from '@capacitor/core';
+import { Network } from '@capacitor/network';
 import { icon } from '../ui.js';
 
 // Routes that only work with a connection. Kept in sync with the [data-online-only]
 // markers on the matching entry points; used as the nav-guard backstop in main.js.
 export const ONLINE_ONLY_ROUTES = [/^#\/dictionary$/, /^#\/practice\//, /^#\/friends/];
 
+// Last known status. Seeded from navigator.onLine, then kept authoritative by
+// initOfflineWatch (from @capacitor/network on native, web events otherwise).
+let currentOnline = navigator.onLine;
+
 export function isOnline() {
-  return navigator.onLine;
+  return currentOnline;
 }
 
 export function isOnlineOnlyRoute(hash) {
@@ -44,6 +54,7 @@ let wasOffline = false;
 let backOnlineTimer = 0;
 
 function apply(online) {
+  currentOnline = online;
   document.documentElement.classList.toggle('is-offline', !online);
   const bar = ensureBar();
   clearTimeout(backOnlineTimer);
@@ -80,6 +91,17 @@ let started = false;
 export function initOfflineWatch() {
   if (started) return;
   started = true;
+
+  if (Capacitor.isNativePlatform()) {
+    // Native: @capacitor/network is authoritative (WebView events are flaky).
+    Network.getStatus()
+      .then((s) => apply(s.connected))
+      .catch(() => apply(navigator.onLine));
+    Network.addListener('networkStatusChange', (s) => apply(s.connected));
+    return;
+  }
+
+  // Web: navigator.onLine + DOM events are reliable in a real browser.
   apply(navigator.onLine);
   window.addEventListener('online', () => apply(true));
   window.addEventListener('offline', () => apply(false));
