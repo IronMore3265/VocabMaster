@@ -51,36 +51,56 @@ function ensureBar() {
 }
 
 let wasOffline = false;
-let backOnlineTimer = 0;
+let hideTimer = 0;
+let dropOnlineTimer = 0;
+
+// Slide the bar away, then drop the green variant once the fade-out finishes.
+function hideBar(bar) {
+  bar.classList.remove('is-visible');
+  clearTimeout(dropOnlineTimer);
+  dropOnlineTimer = setTimeout(() => bar.classList.remove('is-online'), 250);
+}
+
+// Show the red offline bar as a timed toast. The `is-offline` class on <html>
+// (which greys/disables online-only entry points) is applied separately and
+// stays for the whole outage — only the banner is transient.
+function showOfflineToast(bar) {
+  clearTimeout(hideTimer);
+  clearTimeout(dropOnlineTimer);
+  bar.classList.remove('is-online');
+  setContent(bar, false);
+  bar.classList.add('is-visible');
+  hideTimer = setTimeout(() => hideBar(bar), 4000);
+}
 
 function apply(online) {
+  const changed = online !== currentOnline;
   currentOnline = online;
   document.documentElement.classList.toggle('is-offline', !online);
   const bar = ensureBar();
-  clearTimeout(backOnlineTimer);
   if (!online) {
-    wasOffline = true;
-    bar.classList.remove('is-online');
-    setContent(bar, false);
-    bar.classList.add('is-visible');
+    // Toast once when we first drop offline; don't re-toast on repeat events.
+    if (changed || !wasOffline) {
+      wasOffline = true;
+      showOfflineToast(bar);
+    }
     return;
   }
   if (!wasOffline) return; // boot while online — nothing to confirm
   wasOffline = false;
   // Flash a green "you're back" confirmation, then slide away.
+  clearTimeout(hideTimer);
+  clearTimeout(dropOnlineTimer);
   setContent(bar, true);
   bar.classList.add('is-online', 'is-visible');
-  backOnlineTimer = setTimeout(() => {
-    bar.classList.remove('is-visible');
-    // Drop the green variant only after the 0.2s fade-out finishes.
-    setTimeout(() => bar.classList.remove('is-online'), 250);
-  }, 2500);
+  hideTimer = setTimeout(() => hideBar(bar), 2500);
 }
 
-/** A quick attention pulse — used when a tap on a disabled control is blocked. */
+/** Re-show the offline toast — used when a tap on a disabled control is blocked. */
 export function flashOfflineBar() {
+  if (currentOnline) return;
   const bar = ensureBar();
-  if (!bar.classList.contains('is-visible')) return;
+  showOfflineToast(bar);
   bar.classList.remove('offline-pulse');
   void bar.offsetWidth; // restart the animation
   bar.classList.add('offline-pulse');

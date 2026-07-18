@@ -2,6 +2,13 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.1.2',
+    date: '2026-07-18',
+    notes: [
+      'The offline bar now appears briefly and slides away instead of lingering on every screen (including Settings and Login). Connection-only features stay greyed out until you’re back — tap one and the reminder pops up again.',
+    ],
+  },
+  {
     version: '7.1.1',
     date: '2026-07-18',
     notes: [

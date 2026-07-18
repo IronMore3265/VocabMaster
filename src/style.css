@@ -197,10 +197,11 @@ input, textarea {
 .wheel-col::-webkit-scrollbar { display: none; }
 
 /* ---------- Offline banner + gating ---------- */
-/* A red bar above the bottom nav while navigator.onLine is false (green while
-   confirming the connection is back), plus a global
-   rule that greys out and disables every network-only entry point (marked with
-   data-online-only). The class lives on <html>, so it survives screen re-renders. */
+/* A timed red toast above the bottom nav when the connection drops (green while
+   confirming it's back) — both auto-dismiss. The persistent part is the global
+   rule below that greys out and disables every network-only entry point (marked
+   with data-online-only) via the .is-offline class on <html>, which lives for the
+   whole outage and survives screen re-renders. */
 .vt-offline-bar {
   position: fixed;
   left: 0;
