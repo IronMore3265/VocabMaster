@@ -227,6 +227,24 @@ export async function removeFriend(friendId) {
 }
 
 /**
+ * Freeze gifts addressed to the user after `sinceIso`, oldest first. Uncached:
+ * it backs the one-shot boot/resume "did a gift arrive while we were closed"
+ * check (see checkMissedFreezeGifts in lib/streakCelebration.js).
+ */
+export async function fetchFreezeGiftsSince(sinceIso) {
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) throw new Error('Not signed in');
+  const { data, error } = await supabase
+    .from('freeze_gifts')
+    .select('sender_id, created_at')
+    .eq('recipient_id', userRes.user.id)
+    .gt('created_at', sinceIso)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
  * Give one streak freeze to an accepted friend. The RPC enforces the friendship, the
  * once-per-two-weeks-per-friend cooldown, and the recipient's hold cap, raising a
  * human-readable message for each — surfaced via friendlyError.

@@ -16,7 +16,7 @@ function tile(packId, t, subtitle, bestSeconds) {
     ? `<span class="flex items-center gap-1 text-label-sm opacity-75">${icon('timer', 'text-[14px]')} Best ${fmtTime(bestSeconds)}</span>`
     : '';
   return `
-  <button data-nav="#/practice/${packId}/${t.route}"
+  <button data-nav="#/practice/${packId}/${t.route}" data-online-only
     class="tile ${t.cls} rounded-3xl w-full min-h-[164px] flex flex-col items-center justify-center gap-3 p-6 text-center active:scale-[0.98] transition-transform">
     ${icon(t.ic, 'text-[42px]')}
     <div class="flex flex-col items-center gap-1">

@@ -33,13 +33,23 @@ Deno.serve(async (req) => {
   const { data: userData } = await userClient.auth.getUser();
   if (!userData?.user) return json({ error: 'unauthorized' }, 401);
 
+  // NOTE: the app now deletes accounts via the delete_current_user() RPC (see
+  // migration 0013) rather than this function — admin.deleteUser() was failing
+  // with an opaque 500. This is kept as a fallback and now logs/returns the real
+  // error so any future failure is diagnosable instead of a bare "non-2xx".
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!serviceKey) {
+    console.error('delete-account: SUPABASE_SERVICE_ROLE_KEY is not set');
+    return json({ error: 'server_misconfigured: service role key missing' }, 500);
+  }
+
   // Service-role delete cascades to all public.* rows keyed on this user.
-  const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
   const { error } = await admin.auth.admin.deleteUser(userData.user.id);
-  if (error) return json({ error: error.message }, 500);
+  if (error) {
+    console.error('delete-account: deleteUser failed', error);
+    return json({ error: error.message }, 500);
+  }
 
   return json({ ok: true });
 });

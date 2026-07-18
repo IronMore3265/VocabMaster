@@ -55,27 +55,84 @@ function brandBadge() {
   </div>`;
 }
 
+// The four exercise types each play a mini-demo in turn — a card flips, a pair
+// matches, a blank fills, a synonym swaps to its antonym — while the tile dots
+// underneath light up in step. All scenes share one 12s CSS cycle; --ob-i
+// staggers each scene (and its inner motion) by 3s. See .ob-scene in style.css.
 function tileGrid() {
-  const t = (cls, name) => `<div class="ob-tile tile ${cls} rounded-2xl aspect-square flex items-center justify-center">${icon(name, 'text-[28px]')}</div>`;
+  const dot = (cls, name, i) => `
+    <div class="ob-tile-dot tile ${cls} rounded-xl w-11 h-11 flex items-center justify-center" style="--ob-i:${i}">
+      ${icon(name, 'text-[22px]')}
+    </div>`;
+  const matchChip = (label, cls = '') => `
+    <span class="${cls} rounded-full bg-surface shadow-card px-3.5 py-1.5 text-[12px] text-on-surface">${label}</span>`;
   return `
-  <div class="grid grid-cols-2 gap-3 w-44">
-    ${t('tile-flashcards', 'style')}
-    ${t('tile-matching', 'join_inner')}
-    ${t('tile-fillBlank', 'edit_note')}
-    ${t('tile-synAnt', 'compare_arrows')}
+  <div class="flex flex-col items-center gap-5">
+    <div class="relative w-72 h-32">
+      <div class="ob-scene flex items-center justify-center" style="--ob-i:0">
+        <div class="w-44" style="perspective:500px;height:6.5rem">
+          <div class="ob-flip relative w-full h-full">
+            <div class="ob-face absolute inset-0 rounded-xl bg-surface shadow-card flex items-center justify-center text-[16px] font-headline text-on-surface">ubiquitous</div>
+            <div class="ob-face ob-face-back absolute inset-0 rounded-xl bg-primary-fixed flex items-center justify-center px-4 text-center text-[13px] text-on-primary-fixed">found everywhere at once</div>
+          </div>
+        </div>
+      </div>
+      <div class="ob-scene grid grid-cols-2 gap-2.5 content-center justify-items-center" style="--ob-i:1">
+        ${matchChip('averse', 'ob-match-a')}
+        ${matchChip('candid')}
+        ${matchChip('frank')}
+        ${matchChip('reluctant', 'ob-match-b')}
+      </div>
+      <div class="ob-scene flex items-center justify-center" style="--ob-i:2">
+        <div class="rounded-xl bg-surface shadow-card px-4 py-3 text-[14px] text-on-surface">
+          The evidence was
+          <span class="inline-block relative text-center border-b-2 border-primary" style="min-width:5.2em">
+            <span class="ob-fill-word font-headline text-primary">conclusive</span>
+          </span>.
+        </div>
+      </div>
+      <div class="ob-scene flex items-center justify-center gap-2.5" style="--ob-i:3">
+        ${matchChip('candid')}
+        ${icon('compare_arrows', 'text-on-surface-variant text-[20px]')}
+        <span class="grid">
+          <span class="ob-syn col-start-1 row-start-1 rounded-full bg-surface shadow-card px-3.5 py-1.5 text-[12px] font-medium text-secondary">frank</span>
+          <span class="ob-ant col-start-1 row-start-1 rounded-full bg-surface shadow-card px-3.5 py-1.5 text-[12px] font-medium text-error">evasive</span>
+        </span>
+      </div>
+    </div>
+    <div class="flex gap-2.5">
+      ${dot('tile-flashcards', 'style', 0)}
+      ${dot('tile-matching', 'join_inner', 1)}
+      ${dot('tile-fillBlank', 'edit_note', 2)}
+      ${dot('tile-synAnt', 'compare_arrows', 3)}
+    </div>
   </div>`;
 }
 
-// Weak words fly into the coach, which pulses as each lands.
+// Weak words fly into the coach, which pulses as each lands; gold sparks pop
+// off the badge on the beat, the glyph twinkles, and the session bar underneath
+// fills as the coach assembles the next drill. All loops share the chips' 2.8s
+// cycle so the whole scene breathes together.
 function coachArt() {
   const chip = (label, x, y) => `
-    <span class="ob-chip absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-surface-container px-2.5 py-1 text-[11px] text-on-surface-variant shadow-card"
-      style="--from-x:${x}px;--from-y:${y}px">${label}</span>`;
+    <span class="ob-chip absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-surface-container px-2.5 py-1 text-[11px] text-on-surface-variant shadow-card inline-flex items-center gap-1.5"
+      style="--from-x:${x}px;--from-y:${y}px"><span class="w-1.5 h-1.5 rounded-full bg-error"></span>${label}</span>`;
+  const spark = (x, y, d) => `
+    <span class="ob-spark absolute left-1/2 top-1/2" style="--sx:${x}px;--sy:${y}px;--d:${d}s">${icon('auto_awesome', 'text-mastery text-[15px]')}</span>`;
   return `
-  <div class="relative w-44 h-32 flex items-center justify-center">
+  <div class="relative w-44 h-36 flex items-center justify-center">
     <span class="ob-ring absolute w-28 h-28 rounded-full border-2 border-primary"></span>
-    <div class="ob-pulse w-24 h-24 rounded-[1.7rem] bg-primary-fixed flex items-center justify-center">
-      ${icon('auto_awesome', 'text-primary text-[46px]')}
+    <div class="relative">
+      <div class="ob-pulse w-24 h-24 rounded-[1.7rem] bg-primary-fixed flex items-center justify-center">
+        <span class="ob-coach-icon flex">${icon('auto_awesome', 'text-primary text-[46px]')}</span>
+      </div>
+      ${spark(-58, -34, 0)}
+      ${spark(52, -46, 0.15)}
+      ${spark(60, 22, 0.3)}
+      ${spark(-48, 40, 0.45)}
+      <div class="absolute left-1/2 -translate-x-1/2 w-20 h-1.5 rounded-full bg-progress-track overflow-hidden" style="bottom:-14px">
+        <div class="ob-session-fill h-full rounded-full bg-primary"></div>
+      </div>
     </div>
     ${chip('ubiquitous', -74, -40)}
     ${chip('candid', 78, -14)}

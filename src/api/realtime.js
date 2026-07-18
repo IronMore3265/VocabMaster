@@ -38,20 +38,23 @@ function open() {
       (payload) => {
         // A friend gave us a freeze: refresh the count and raise a heads-up.
         invalidate('streak-state', 'friends:freezes');
-        window.dispatchEvent(new CustomEvent('vm:freeze-received'));
-        announceGift(payload.new?.sender_id);
+        announceGift(payload.new?.sender_id, payload.new?.created_at);
       },
     )
     .subscribe();
 }
 
-async function announceGift(senderId) {
+async function announceGift(senderId, createdAt) {
   let name = 'A friend';
   try {
     const { data } = await supabase
       .from('profiles').select('display_name').eq('id', senderId).single();
     if (data?.display_name) name = data.display_name;
   } catch { /* name is a nicety; the notification still fires without it */ }
+  // Carries the sender's name (for the full-screen celebration in main.js) and
+  // the row's server timestamp (to advance the celebrated-gift watermark, so
+  // the boot/resume check doesn't replay a gift already shown live).
+  window.dispatchEvent(new CustomEvent('vm:freeze-received', { detail: { name, createdAt } }));
   notifyFreezeGift(name);
 }
 

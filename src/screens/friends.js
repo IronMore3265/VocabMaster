@@ -265,7 +265,7 @@ function friendRow(f, streak = 0, freezes) {
   const canGift = typeof freezes === 'number' && freezes < 2;
   return `
   <div class="flex items-center gap-3 py-3 border-b border-progress-track last:border-0">
-    <button data-compare="${esc(f.id)}" class="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70 transition-opacity">
+    <button data-compare="${esc(f.id)}" data-online-only class="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70 transition-opacity">
       ${avatar(f)}
       <span class="text-body-md text-on-surface truncate flex-1">${esc(f.name)}</span>
       ${streakBadge(streak)}

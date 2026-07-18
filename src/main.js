@@ -17,7 +17,10 @@ import { fetchStreakState } from './api/queries.js';
 import { fetchFriends, fetchMyStats } from './api/friends.js';
 import { syncDailyGoal } from './api/account.js';
 import { cancelAllReminders, rescheduleReminders } from './lib/notifications.js';
-import { primeLevelBaseline } from './lib/streakCelebration.js';
+import {
+  checkMissedFreezeGifts, markFreezeGiftSeen, primeLevelBaseline, showFreezeGiftCelebration,
+} from './lib/streakCelebration.js';
+import { flashOfflineBar, initOfflineWatch, isOnlineOnlyRoute } from './lib/offline.js';
 
 import * as onboarding from './screens/onboarding.js';
 import * as signIn from './screens/sign-in.js';
@@ -90,6 +93,9 @@ document.addEventListener('click', (e) => {
   } else if (target === 'menu') {
     openMenu();
   } else {
+    // Backstop for the CSS gating: a network-only route can't be opened while
+    // offline (covers any programmatic path the pointer-events rule misses).
+    if (!navigator.onLine && isOnlineOnlyRoute(target)) { flashOfflineBar(); return; }
     navigate(target);
   }
 });
@@ -151,12 +157,19 @@ async function bootstrapSession() {
   try { await syncDailyGoal(); } catch { /* offline — device setting stands */ }
   fetchStreakState().catch(() => {}); // prime + run the day-boundary freeze bookkeeping
   primeLevelBaseline(); // seed the level-up baseline before any session can pop it
+  checkMissedFreezeGifts(); // gifts that arrived while the app was closed
   refreshRemindersAndBadge();
 }
 
 // A friend's action (realtime) or opening the Friends tab move the dot.
 window.addEventListener('vm:friends-changed', refreshRemindersAndBadge);
 window.addEventListener('vm:friends-seen', () => setUnseenRequests(false));
+// A freeze arrived while the app is open — give it the full-screen moment, and
+// stamp the watermark so the resume check doesn't replay it.
+window.addEventListener('vm:freeze-received', (e) => {
+  markFreezeGiftSeen(e.detail?.createdAt);
+  showFreezeGiftCelebration({ from: e.detail?.name });
+});
 
 // ---------- Android hardware back button + app lifecycle ----------
 import('@capacitor/app')
@@ -177,6 +190,7 @@ import('@capacitor/app')
         resumeFriendsRealtime();
         if (getAuthState().session) {
           fetchStreakState().catch(() => {});
+          checkMissedFreezeGifts(); // a friend may have gifted while backgrounded
           refreshRemindersAndBadge();
         }
       } else {
@@ -188,6 +202,7 @@ import('@capacitor/app')
 
 // ---------- boot ----------
 applyTheme();
+initOfflineWatch();
 
 let started = false;
 function boot() {

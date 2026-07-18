@@ -1,0 +1,15 @@
+-- Fix: account deletion (delete_current_user, 0013) cascaded a DELETE into
+-- freeze_gifts and failed with:
+--   cannot delete from table "freeze_gifts" because it does not have a replica
+--   identity and publishes deletes
+--
+-- freeze_gifts is in the supabase_realtime publication (0012 adds it, so the
+-- recipient's Realtime subscription sees incoming gifts). That publication
+-- replicates DELETEs, which requires the table to have a usable REPLICA IDENTITY.
+-- freeze_gifts has no primary key, so its default replica identity ("d") is
+-- unusable and every DELETE — including the ON DELETE CASCADE from auth.users —
+-- is rejected.
+--
+-- REPLICA IDENTITY FULL logs the entire old row on DELETE, which satisfies the
+-- publication without adding a primary key or otherwise changing the schema.
+alter table public.freeze_gifts replica identity full;

@@ -196,6 +196,44 @@ input, textarea {
 .wheel-col { scrollbar-width: none; -ms-overflow-style: none; }
 .wheel-col::-webkit-scrollbar { display: none; }
 
+/* ---------- Offline banner + gating ---------- */
+/* A red bar above the bottom nav while navigator.onLine is false (green while
+   confirming the connection is back), plus a global
+   rule that greys out and disables every network-only entry point (marked with
+   data-online-only). The class lives on <html>, so it survives screen re-renders. */
+.vt-offline-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  z-index: 45;
+  background: var(--color-error);
+  color: var(--color-on-error);
+  box-shadow: 0 -2px 12px rgb(0 0 0 / 0.12);
+  opacity: 0;
+  transform: translateY(0.5rem);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.vt-offline-bar.is-visible { opacity: 1; transform: translateY(0); }
+/* Transient "you're back online" confirmation. */
+.vt-offline-bar.is-online {
+  background: var(--color-secondary);
+  color: var(--color-on-secondary);
+}
+
+.is-offline [data-online-only] {
+  pointer-events: none;
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+@keyframes offlinePulse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.vt-offline-bar.offline-pulse { animation: offlinePulse 0.3s ease; }
+
 /* ---------- Exercise tiles — pastel fill in light, pastel ink in dark ---------- */
 /* (matches exercisePastels / exercisePastelText: dark moves the hue to text) */
 /* Categorical accents (design_edit.md §3 / §6.2): solid pastel + dark ink in
@@ -324,26 +362,88 @@ input, textarea {
 @keyframes obOutLeft { to { opacity: 0; transform: translateX(-28px); } }
 @keyframes obOutRight { to { opacity: 0; transform: translateX(28px); } }
 
-/* Practice: the four exercise tiles deal in, then keep breathing in sequence. */
-.ob-tile { animation: obDeal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both, obBreathe 3.6s ease-in-out infinite; }
-.ob-tile:nth-child(1) { animation-delay: 0.05s, 0.6s; }
-.ob-tile:nth-child(2) { animation-delay: 0.15s, 0.9s; }
-.ob-tile:nth-child(3) { animation-delay: 0.25s, 1.2s; }
-.ob-tile:nth-child(4) { animation-delay: 0.35s, 1.5s; }
-@keyframes obDeal {
-  from { opacity: 0; transform: translateY(18px) rotate(-8deg) scale(0.8); }
-  to { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+/* Practice: four mini-demos rotate on one shared 12s cycle — each scene owns a
+   3s quarter, offset via --ob-i (set inline on the scene and inherited by its
+   inner pieces, so every keyframe list below just scripts its quarter as
+   0–25% of the cycle). fill-mode both keeps scenes hidden while they wait. */
+.ob-scene,
+.ob-flip,
+.ob-fill-word,
+.ob-syn,
+.ob-ant,
+.ob-match-a,
+.ob-match-b,
+.ob-tile-dot {
+  animation-duration: 12s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--ob-i, 0) * 3s);
 }
-@keyframes obBreathe {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+/* Base styles double as the reduced-motion still: scene one shown, rest hidden. */
+.ob-scene { position: absolute; inset: 0; opacity: 0; animation-name: obScene; }
+.ob-scene:first-child { opacity: 1; }
+@keyframes obScene {
+  0% { opacity: 0; transform: translateX(24px); }
+  4%, 20% { opacity: 1; transform: translateX(0); }
+  24%, 100% { opacity: 0; transform: translateX(-24px); }
+}
+/* The flashcard turns over to its meaning. */
+.ob-flip { transform-style: preserve-3d; animation-name: obFlip; }
+.ob-face { backface-visibility: hidden; }
+.ob-face-back { transform: rotateY(180deg); }
+@keyframes obFlip {
+  0%, 8% { transform: rotateY(0); }
+  12%, 100% { transform: rotateY(180deg); }
+}
+/* Matching: one chip gets picked, then its pair, then both light up green. */
+.ob-match-a { animation-name: obMatchA; }
+.ob-match-b { animation-name: obMatchB; }
+@keyframes obMatchA {
+  0%, 6% { box-shadow: var(--shadow-card); }
+  8%, 13% { box-shadow: 0 0 0 2px var(--color-primary); }
+  15%, 21% { box-shadow: 0 0 0 2px var(--color-secondary); background: var(--color-secondary-container); color: var(--color-on-secondary-container); }
+  24%, 100% { box-shadow: var(--shadow-card); }
+}
+@keyframes obMatchB {
+  0%, 11% { box-shadow: var(--shadow-card); }
+  13%, 14% { box-shadow: 0 0 0 2px var(--color-primary); }
+  15%, 21% { box-shadow: 0 0 0 2px var(--color-secondary); background: var(--color-secondary-container); color: var(--color-on-secondary-container); }
+  24%, 100% { box-shadow: var(--shadow-card); }
+}
+/* Fill-in-the-blank: the word drops onto the underline. */
+.ob-fill-word { display: inline-block; animation-name: obFillWord; }
+@keyframes obFillWord {
+  0%, 8% { opacity: 0; transform: translateY(-10px); }
+  13%, 100% { opacity: 1; transform: translateY(0); }
+}
+/* Synonym flips to antonym across the arrows. */
+.ob-syn { animation-name: obSyn; }
+.ob-ant { opacity: 0; animation-name: obAnt; }
+@keyframes obSyn {
+  0%, 3% { opacity: 0; }
+  6%, 12% { opacity: 1; }
+  15%, 100% { opacity: 0; }
+}
+@keyframes obAnt {
+  0%, 15% { opacity: 0; }
+  18%, 22% { opacity: 1; }
+  25%, 100% { opacity: 0; }
+}
+/* The tile dots under the stage light up with their scene. */
+.ob-tile-dot { opacity: 0.4; animation-name: obTileOn; }
+.ob-tile-dot:first-child { opacity: 1; }
+@keyframes obTileOn {
+  0%, 2% { opacity: 0.4; transform: scale(1); }
+  5%, 20% { opacity: 1; transform: scale(1.12); }
+  25%, 100% { opacity: 0.4; transform: scale(1); }
 }
 
 /* Coach: weak-word chips are drawn into the badge, which pulses as they land.
    Each chip fades out while it is still short of the centre (18% of the way in)
    so it reads as absorbed. Travelling all the way to translate(0,0) parked an
    opaque chip on top of the icon and hid it. */
-.ob-chip { animation: obConverge 2.8s ease-in infinite both; }
+.ob-chip { opacity: 0; animation: obConverge 2.8s ease-in infinite both; }
 .ob-chip:nth-child(1) { animation-delay: 0s; }
 .ob-chip:nth-child(2) { animation-delay: 0.5s; }
 .ob-chip:nth-child(3) { animation-delay: 1s; }
@@ -360,11 +460,34 @@ input, textarea {
   0%, 60%, 100% { transform: scale(1); }
   70% { transform: scale(1.12); }
 }
-.ob-ring { animation: obRing 2.8s ease-out infinite; }
+.ob-ring { opacity: 0; animation: obRing 2.8s ease-out infinite; }
 @keyframes obRing {
   0%, 60% { opacity: 0; transform: scale(0.9); }
   72% { opacity: 0.5; }
   100% { opacity: 0; transform: scale(1.6); }
+}
+/* The coach glyph twinkles on the absorb beat (the badge pulse at 70%)… */
+.ob-coach-icon { animation: obTwinkle 2.8s ease-in-out infinite; }
+@keyframes obTwinkle {
+  0%, 55% { transform: rotate(0) scale(1); }
+  65% { transform: rotate(-12deg) scale(1.06); }
+  75% { transform: rotate(10deg) scale(1.16); }
+  88%, 100% { transform: rotate(0) scale(1); }
+}
+/* …gold sparks pop off around it in a quick ripple… */
+.ob-spark { opacity: 0; animation: obSpark 2.8s ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes obSpark {
+  0%, 62% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(0.2) rotate(0); }
+  74% { opacity: 1; transform: translate(var(--sx), var(--sy)) scale(1.1) rotate(40deg); }
+  86%, 100% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(0.4) rotate(90deg); }
+}
+/* …and the session bar fills in bumps as each weak word lands. */
+.ob-session-fill { transform-origin: left; animation: obSessionFill 2.8s ease-in-out infinite; }
+@keyframes obSessionFill {
+  0%, 5% { transform: scaleX(0.08); }
+  30% { transform: scaleX(0.35); }
+  55% { transform: scaleX(0.6); }
+  78%, 100% { transform: scaleX(1); }
 }
 
 /* Friends: two faces drift together and the shared streak lights between them. */
@@ -387,18 +510,66 @@ input, textarea {
 
 /* ---------- Streak celebration (full-screen fire) ---------- */
 .streak-cel { animation: backdropIn 0.25s ease-out both; }
-/* The flame bursts in with a spring, then breathes. */
-.streak-flame { animation: streakBurst 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both, floaty 3s ease-in-out 0.6s infinite; }
-@keyframes streakBurst {
-  0% { opacity: 0; transform: scale(0.2) rotate(-12deg); }
-  60% { opacity: 1; transform: scale(1.15) rotate(4deg); }
-  100% { opacity: 1; transform: scale(1) rotate(0); }
+/* The flame ignites from its base, then keeps flickering like a live fire. */
+.streak-flame {
+  transform-origin: 50% 90%;
+  animation: flameIgnite 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             flameFlicker 1.8s ease-in-out 0.6s infinite;
 }
-/* Rays fan out behind the flame and keep turning slowly. */
-.streak-rays { animation: streakRaysIn 0.7s ease-out both, spinSlow 18s linear 0.7s infinite; }
-@keyframes streakRaysIn { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes flameIgnite {
+  0% { opacity: 0; transform: scale(0.2) scaleY(0.4); }
+  60% { opacity: 1; transform: scale(1.1) scaleY(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scaleX(0.96) scaleY(1.05); }
+  50% { transform: scale(1.02) rotate(-1.5deg); }
+  75% { transform: scaleX(1.05) scaleY(0.96) rotate(1.5deg); }
+}
+/* Each ray draws outward from zero length (pathLength=1 on the lines), then the
+   whole ring keeps turning slowly. */
+.streak-rays { animation: spinSlow 18s linear 0.7s infinite; }
+.streak-rays line {
+  stroke-dasharray: 1;
+  animation: rayDraw 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+@keyframes rayDraw { from { stroke-dashoffset: 1; } }
 @keyframes spinSlow { to { transform: rotate(360deg); } }
 .streak-copy { animation: fadeUp 0.5s ease-out 0.35s both; }
+
+/* Level-up: the ring ignites like the flame but floats instead of flickering,
+   while the arrow rises from the bottom of the circle into the centre to
+   assemble the icon. Path transforms are in the icon's 24-unit viewBox. */
+.level-cel .streak-flame {
+  animation: flameIgnite 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             floaty 3s ease-in-out 0.8s infinite;
+}
+.level-arrow { animation: levelArrowUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both; }
+@keyframes levelArrowUp {
+  from { opacity: 0; transform: translateY(11px); }
+}
+
+/* Freeze gift: the snowflake ignites, then turns slowly against the rays' spin,
+   while gift glyphs rain down behind the stage. */
+.freeze-cel .streak-flame {
+  transform-origin: 50% 50%;
+  animation: flameIgnite 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             spinSlow 24s linear 0.6s infinite reverse;
+}
+.freeze-gifts span {
+  position: absolute;
+  top: -48px;
+  opacity: 0;
+  animation: giftFall 6s linear infinite;
+}
+.freeze-gifts span .icon { font-size: inherit; }
+@keyframes giftFall {
+  0% { opacity: 0; transform: translateY(0) rotate(-15deg); }
+  10% { opacity: 0.45; }
+  85% { opacity: 0.45; }
+  100% { opacity: 0; transform: translateY(105vh) rotate(20deg); }
+}
 
 /* ---------- Route view transitions ---------- */
 ::view-transition-old(root), ::view-transition-new(root) {
@@ -473,10 +644,19 @@ html[data-vt='back']::view-transition-new(root) { animation-name: vtInLeft; }
 .toggle-knob { transition: left 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
 .toggle-track { transition: background-color 0.25s ease; }
 
+/* Accessibility: with the OS "reduce motion" preference on, animations are
+   removed outright and every element shows its base (resting) styles.
+
+   Convention this relies on — follow it for all new animation in this file:
+   an element's base styles ARE its finished, resting look; keyframes only
+   animate FROM an offset/hidden state into it (never park a resting state in
+   a 100% frame). Purely decorative motion (converging chips, sparks, gift
+   rain, pulse rings) is base-hidden (opacity: 0) and revealed only by its
+   animation, so it simply vanishes here. Rotating showcases (.ob-scene) set
+   their reduced-motion still in base styles: first scene visible, rest hidden. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
   }
 }

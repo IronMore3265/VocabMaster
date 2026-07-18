@@ -93,6 +93,10 @@ const TABS = [
   { route: '#/friends', iconName: 'group', label: 'Friends' },
 ];
 
+// Tabs that need a connection — greyed + untappable while offline. Library and
+// Analytics stay open (they render cached data or their own error).
+const ONLINE_ONLY_TABS = new Set(['#/dictionary', '#/practice/ai', '#/friends']);
+
 // Whether there are unseen incoming friend requests — drives the Friends tab dot.
 // Set from the realtime/boot path; the Friends screen clears it on open.
 let unseenRequests = false;
@@ -125,8 +129,10 @@ export function bottomNav(activeRoute, { badges = {} } = {}) {
         const badge = showBadge
           ? '<span data-req-dot class="absolute top-2 right-[22%] w-2 h-2 rounded-full bg-error border border-background"></span>'
           : '';
+        // Tabs that are useless offline grey out and stop responding to taps.
+        const onlineOnly = ONLINE_ONLY_TABS.has(t.route) ? ' data-online-only' : '';
         return `
-        <button data-nav="${t.route}" class="relative flex flex-col items-center justify-center gap-1 w-full h-full active:scale-95 transition-[transform,color] duration-200 ${
+        <button data-nav="${t.route}"${onlineOnly} class="relative flex flex-col items-center justify-center gap-1 w-full h-full active:scale-95 transition-[transform,color] duration-200 ${
           active ? 'text-primary' : 'text-on-surface-variant'
         }">
           ${icon(t.iconName, active ? 'icon-strong' : '')}${badge}
@@ -689,11 +695,16 @@ export function bindToggles(scope, onChange) {
 
 // ---------- time wheel (reminder picker) ----------
 // An iOS-style scroll-snap picker for hour (1–12) / minute / AM–PM. Columns snap,
-// a centred band marks the selection, and top/bottom fades imply the wheel. Stores
+// a centred band marks the selection, and top/bottom fades imply the wheel. Hour
+// and minute wrap endlessly (12→1, 59→00): the list is rendered as many identical
+// copies and each settle silently re-centres scrollTop into the middle copy, so
+// the wheel never hits an edge. AM/PM is only two rows, so it stays finite. Stores
 // nothing itself — bindTimeWheel reads the snapped rows back as 24h hour + minute.
 const WHEEL_ITEM_H = 40;
 const WHEEL_VISIBLE = 5; // odd, so one row centres under the band
 const WHEEL_PAD = ((WHEEL_VISIBLE - 1) / 2) * WHEEL_ITEM_H;
+const WHEEL_COPIES = 9; // odd, so there's a true middle copy to re-centre into
+const WHEEL_MID = (WHEEL_COPIES - 1) / 2;
 
 // 24h hour + minute → the three column indices.
 function timeToIndices(hour24, minute) {
@@ -701,11 +712,15 @@ function timeToIndices(hour24, minute) {
   return { h: h12 - 1, m: minute, ap: hour24 < 12 ? 0 : 1 };
 }
 
-function wheelColumn(name, items, idx) {
-  const rows = items.map((it, i) =>
-    `<div data-i="${i}" class="wheel-item snap-center flex items-center justify-center font-mono text-body-lg text-on-surface" style="height:${WHEEL_ITEM_H}px">${it}</div>`).join('');
+function wheelColumn(name, items, { loop = false } = {}) {
+  // A looping column stacks WHEEL_COPIES copies so there's always content above
+  // and below the viewport; a finite column is a single copy inside the pads.
+  const copies = loop ? WHEEL_COPIES : 1;
+  const rows = Array.from({ length: copies }, () =>
+    items.map((it, i) =>
+      `<div data-i="${i}" class="wheel-item snap-center flex items-center justify-center font-mono text-body-lg text-on-surface" style="height:${WHEEL_ITEM_H}px">${it}</div>`).join('')).join('');
   return `
-  <div data-wheel="${name}" class="wheel-col flex-1 overflow-y-auto snap-y snap-mandatory" style="height:${WHEEL_VISIBLE * WHEEL_ITEM_H}px">
+  <div data-wheel="${name}" data-loop="${loop}" class="wheel-col flex-1 overflow-y-auto snap-y snap-mandatory" style="height:${WHEEL_VISIBLE * WHEEL_ITEM_H}px">
     <div style="height:${WHEEL_PAD}px"></div>
     ${rows}
     <div style="height:${WHEEL_PAD}px"></div>
@@ -713,17 +728,18 @@ function wheelColumn(name, items, idx) {
 }
 
 export function timeWheel({ hour = 20, minute = 0 } = {}) {
-  const { h, m, ap } = timeToIndices(hour, minute);
   const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
   const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+  // data-no-drag: keeps the sheet's swipe-to-dismiss from grabbing a vertical
+  // scroll on the wheel and sliding the whole sheet down (see showSheet).
   return `
-  <div data-time-wheel class="relative select-none">
+  <div data-time-wheel data-no-drag class="relative select-none">
     <div class="pointer-events-none absolute left-0 right-0 top-1/2 -translate-y-1/2 z-10 rounded-xl bg-primary/10 border-y border-primary/40" style="height:${WHEEL_ITEM_H}px"></div>
     <div class="flex gap-2 px-2">
-      ${wheelColumn('hour', hours, h)}
+      ${wheelColumn('hour', hours, { loop: true })}
       <div class="flex items-center font-mono text-body-lg text-on-surface-variant">:</div>
-      ${wheelColumn('minute', minutes, m)}
-      ${wheelColumn('ampm', ['AM', 'PM'], ap)}
+      ${wheelColumn('minute', minutes, { loop: true })}
+      ${wheelColumn('ampm', ['AM', 'PM'])}
     </div>
     <div class="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-surface to-transparent"></div>
     <div class="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface to-transparent"></div>
@@ -737,37 +753,59 @@ export function timeWheel({ hour = 20, minute = 0 } = {}) {
  */
 export function bindTimeWheel(scope, { hour = 20, minute = 0, onChange } = {}) {
   const root = scope.querySelector('[data-time-wheel]');
+  // [element, item count]; looping columns are the ones rendered with copies.
   const cols = {
-    hour: root.querySelector('[data-wheel="hour"]'),
-    minute: root.querySelector('[data-wheel="minute"]'),
-    ampm: root.querySelector('[data-wheel="ampm"]'),
+    hour: [root.querySelector('[data-wheel="hour"]'), 12],
+    minute: [root.querySelector('[data-wheel="minute"]'), 60],
+    ampm: [root.querySelector('[data-wheel="ampm"]'), 2],
   };
-  const { h, m, ap } = timeToIndices(hour, minute);
-  cols.hour.scrollTop = h * WHEEL_ITEM_H;
-  cols.minute.scrollTop = m * WHEEL_ITEM_H;
-  cols.ampm.scrollTop = ap * WHEEL_ITEM_H;
+  const isLoop = (el) => el.getAttribute('data-loop') === 'true';
 
-  const indexOf = (el, max) =>
-    Math.max(0, Math.min(max, Math.round(el.scrollTop / WHEEL_ITEM_H)));
+  // Flat row of a looping column centred under the band: middle copy + idx.
+  const loopTop = (n, idx) => (WHEEL_MID * n + idx) * WHEEL_ITEM_H;
+  const setStart = ([el, n], idx) => {
+    el.scrollTop = isLoop(el) ? loopTop(n, idx) : idx * WHEEL_ITEM_H;
+  };
+
+  const { h, m, ap } = timeToIndices(hour, minute);
+  setStart(cols.hour, h);
+  setStart(cols.minute, m);
+  setStart(cols.ampm, ap);
+
+  // Row index within one copy: modulo for a looping column, clamped otherwise.
+  const indexOf = ([el, n]) => {
+    const row = Math.round(el.scrollTop / WHEEL_ITEM_H);
+    return isLoop(el) ? ((row % n) + n) % n : Math.max(0, Math.min(n - 1, row));
+  };
   const get = () => {
-    const h12 = indexOf(cols.hour, 11) + 1;
-    const min = indexOf(cols.minute, 59);
-    const isPm = indexOf(cols.ampm, 1) === 1;
+    const h12 = indexOf(cols.hour) + 1;
+    const min = indexOf(cols.minute);
+    const isPm = indexOf(cols.ampm) === 1;
     const hour24 = (h12 % 12) + (isPm ? 12 : 0);
     return { hour: hour24, minute: min };
   };
 
-  // scrollend where supported; otherwise a debounced settle. Snap alignment keeps
-  // the row centred, so reading scrollTop after it settles is exact.
-  const timers = new Map();
-  const settle = () => { const t = get(); onChange?.(t.hour, t.minute); };
-  const onScroll = (el) => {
-    clearTimeout(timers.get(el));
-    timers.set(el, setTimeout(settle, 120));
+  // On settle, re-centre a looping column into the middle copy (keeping the same
+  // visible row) so a later fling can't run off the end. Setting scrollTop to an
+  // already-snapped multiple doesn't fight scroll-snap; the guard stops a
+  // re-centre from looping on the scroll event it would itself fire.
+  const recenter = (col) => {
+    const [el, n] = col;
+    if (!isLoop(el)) return;
+    const target = loopTop(n, indexOf(col));
+    if (Math.abs(el.scrollTop - target) > 0.5) el.scrollTop = target;
   };
+
+  const entries = Object.values(cols);
+  const timers = new Map();
+  const settle = (col) => { recenter(col); const t = get(); onChange?.(t.hour, t.minute); };
   const listeners = [];
-  for (const el of Object.values(cols)) {
-    const handler = () => onScroll(el);
+  for (const col of entries) {
+    const el = col[0];
+    const handler = () => {
+      clearTimeout(timers.get(el));
+      timers.set(el, setTimeout(() => settle(col), 120));
+    };
     el.addEventListener('scroll', handler, { passive: true });
     listeners.push([el, handler]);
   }

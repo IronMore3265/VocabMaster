@@ -2,6 +2,20 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.1.0',
+    date: '2026-07-18',
+    notes: [
+      'The app now knows when you go offline: a red bar appears and features that need a connection (Dictionary, AI Coach, practice, Friends compare) grey out, then a green “You’re back online” bar confirms when it returns.',
+      'When a friend gifts you a streak freeze, you now get a full-screen moment — gifts raining down around a snowflake — and you’ll see it on your next open even if a gift arrived while the app was closed.',
+      'Reworked the streak and level-up celebrations: the flame now ignites and flickers, the rays sweep outward, and the level-up arrow rises into place.',
+      'The tour’s practice slide now demonstrates all four exercises in turn — a card flips, a pair matches, a blank fills, a synonym flips to its antonym — and the AI Coach slide has a livelier animation.',
+      'Book cards in your Library now show both a blue Progress bar and a gold Mastery bar, matching the pack cards inside.',
+      'Redesigned the streak card on Analytics with a bigger flame that lights up once you’ve hit today’s goal, and a “Best” badge for your longest streak.',
+      'The reminder time picker wheels now scroll endlessly, so you can spin past 12 or 59 without hitting a wall.',
+      'Fixed account deletion, which was failing with an unhelpful error.',
+    ],
+  },
+  {
     version: '7.0.0',
     date: '2026-07-18',
     notes: [

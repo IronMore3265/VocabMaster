@@ -121,9 +121,17 @@ export function mount(root) {
     </div>
 
     ${freezeBox(freezes)}
-    <div class="flex gap-3">
-      ${statTile({ iconName: 'local_fire_department', countTo: streak, label: 'DAY STREAK', iconClass: 'text-flame text-[22px]' })}
-      ${statTile({ iconName: 'bolt', countTo: longest, label: 'BEST STREAK' })}
+    <div class="bg-surface rounded-3xl p-6 flex items-center justify-between gap-4 shadow-card">
+      <div class="flex items-center gap-4 min-w-0">
+        ${icon('local_fire_department', 'text-flame text-[34px] shrink-0', todayXp >= goal)}
+        <div class="min-w-0">
+          <span data-count-to="${streak}" class="block font-mono text-[32px] leading-9 text-on-surface">0</span>
+          <span class="text-label-sm uppercase text-on-surface-variant">Day streak</span>
+        </div>
+      </div>
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-flame-dim px-3 py-1.5 text-label-md text-flame shrink-0">
+        ${icon('flame_kindling', 'text-[16px]')} Best ${longest}
+      </span>
     </div>
 
     <div class="flex gap-3">

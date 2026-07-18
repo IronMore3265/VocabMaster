@@ -6,8 +6,8 @@
 import {
   Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
   BookmarkCheck, BookmarkPlus, Check, CheckCheck, ChevronRight, CircleArrowUp,
-  CircleCheckBig, CircleUserRound, CircleX, Combine, Copy, Delete, Download, Eye,
-  EyeOff, Flame, Gift, GraduationCap, Hand, History, Hourglass, Layers, Library,
+  CircleCheckBig, CircleUserRound, CircleX, Cloud, CloudOff, Combine, Copy, Delete, Download, Eye,
+  EyeOff, Flame, FlameKindling, Gift, GraduationCap, Hand, History, Hourglass, Layers, Library,
   LogOut, Moon, Palette, PenLine, Play, RefreshCw, RotateCcw, ScrollText, Search,
   Settings, Smile, Snowflake, Sparkles, Sun, SunMoon, Target, TextAlignStart,
   Timer, TrendingUp, Trash2, TriangleAlert, UserPlus, Users, Volume2, X, Zap,
@@ -53,6 +53,7 @@ export const ICONS = {
 
   // analytics
   local_fire_department: Flame,
+  flame_kindling: FlameKindling, // best (longest) streak record
   workspace_premium: Award,
   history: History,
   target: Target,
@@ -63,6 +64,8 @@ export const ICONS = {
   task_alt: CheckCheck, // packs completed
   notifications: Bell,
   timer: Timer, // exercise stopwatch
+  cloud_off: CloudOff, // offline banner
+  cloud_done: Cloud, // back-online banner
 
   // ai coach
   auto_awesome: Sparkles,

@@ -81,6 +81,18 @@ export function setLevelCelebrated(level) {
   save('level.celebrated', level);
 }
 
+// ---------- freeze-gift celebration (watermark) ----------
+// Realtime shows gifts that arrive while the app is open; this stamps the
+// newest gift already celebrated so the boot/resume check only surfaces ones
+// received while the app was closed, and never replays.
+export function getFreezeGiftsSeenAt() {
+  return load('freezeGifts.seenAt', '') || '';
+}
+
+export function setFreezeGiftsSeenAt(iso) {
+  save('freezeGifts.seenAt', iso);
+}
+
 // ---------- exercise best times (device-local personal bests) ----------
 // Fastest completion, in seconds, per pack + exercise type. Keyed "packId:type".
 export function getBestTime(packId, type) {

@@ -46,14 +46,14 @@ export async function syncDailyGoal() {
 
 /**
  * Permanently deletes the signed-in user's account and all of their data.
- * The delete-account edge function removes the auth user with the service role;
- * every per-user table cascades from auth.users, so nothing is left behind.
+ * Calls the delete_current_user() RPC (SECURITY DEFINER), which runs
+ * `delete from auth.users where id = auth.uid()`; every per-user table cascades
+ * from auth.users, so nothing is left behind. This replaced the delete-account
+ * edge function, whose admin.deleteUser() path failed with an opaque 500.
  */
 export async function deleteAccount() {
-  const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
+  const { error } = await supabase.rpc('delete_current_user');
   if (error) throw error;
-  if (data?.error) throw new Error(String(data.error));
-  return data;
 }
 
 export const DISPLAY_NAME_MAX = 40;
