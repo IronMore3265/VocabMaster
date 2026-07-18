@@ -1,62 +1,59 @@
 import {
-  computeLongestStreak, computeStreak, dailyActivity, dailyXp, fetchAttemptEvents,
-  fetchExerciseAccuracy, fetchPackProgress, fetchStreakState, fetchWeakWords, levelForXp,
-  localDayKey, qualifyingDays, totalXp,
+  computeLongestStreak, computeStreak, coverageRatio, dailyXp, fetchAttemptEvents,
+  fetchExerciseAccuracy, fetchPackCoverage, fetchPackProgress, fetchStreakState, fetchWeakWords,
+  levelForXp, localDayKey, qualifyingDays, totalXp, weekActivity,
 } from '../api/queries.js';
 import { packsCompleted } from '../api/friends.js';
 import { getSettings } from '../store.js';
 import { EXERCISE_LABELS } from '../lib/models.js';
 import {
   appHeader, bindCountUps, bottomNav, emptyState, esc, icon, progressBar, progressRing, spinner,
-  statTile,
+  statTile, xpWeekChart,
 } from '../ui.js';
 
-const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-// A streak-freeze pip: a blue snowflake in a circle when the freeze is available,
-// muted once it has been spent. Two of these sit above the streak tiles (max hold 2).
-function freezePip(available) {
-  return `
-  <div class="flex-1 flex justify-center">
+// The streak-freeze box: a labelled card with the two freeze pips on the right
+// (blue = ready, muted = spent). Max hold is 2, hence exactly two pips.
+function freezeBox(freezes) {
+  const pip = (available) => `
     <div class="w-8 h-8 rounded-full flex items-center justify-center ${available ? 'bg-primary/15' : 'bg-surface-container'}"
       title="${available ? 'Streak freeze ready — covers a missed day' : 'Streak freeze spent'}">
       ${icon('ac_unit', available ? 'text-primary text-[16px]' : 'text-outline text-[16px]')}
+    </div>`;
+  return `
+  <div class="bg-surface rounded-3xl p-5 flex items-center justify-between gap-3 shadow-card">
+    <div class="flex items-center gap-3 min-w-0">
+      ${icon('ac_unit', 'text-primary text-[20px] shrink-0')}
+      <span class="text-body-md text-on-surface">Streak freezes available</span>
     </div>
+    <div class="flex items-center gap-2 shrink-0">${pip(0 < freezes)}${pip(1 < freezes)}</div>
   </div>`;
 }
 
-// A compact 7-day XP bar chart with the daily goal drawn across it.
-function weeklyChart(byDay, goal) {
-  const days = dailyActivity(byDay, 7);
+// A labelled progress/mastery bar for the Library card.
+function libBar(label, ratio, fillClass, pctClass) {
+  return `
+  <div class="flex flex-col gap-2">
+    <div class="flex justify-between text-body-sm">
+      <span class="text-on-surface-variant">${label}</span>
+      <span class="font-mono ${pctClass}">${Math.round(ratio * 100)}%</span>
+    </div>
+    ${progressBar(ratio, { height: 10, fillClass })}
+  </div>`;
+}
+
+// The weekly XP line chart, Sunday→Saturday. Future days this week are left
+// unplotted; the goal line is gone in favour of a numeric y-axis.
+function weeklyChart(byDay) {
+  const days = weekActivity(byDay);
   const weekTotal = days.reduce((s, d) => s + d.xp, 0);
-  // Scale to whichever is bigger so the goal line always sits on the chart.
-  const max = Math.max(goal, 1, ...days.map((d) => d.xp));
-  const goalPct = Math.min(100, Math.round((goal / max) * 100));
-  const bars = days.map((d, i) => {
-    const pct = d.xp ? Math.max(8, Math.round((d.xp / max) * 100)) : 0;
-    const today = d.key === localDayKey(new Date());
-    const met = d.xp >= goal;
-    return `
-    <div class="flex-1 flex flex-col items-center gap-2">
-      <div class="w-full flex items-end justify-center" style="height:96px">
-        <div class="grow-y w-full max-w-[24px] rounded-t-md ${met ? 'bg-flame' : d.xp ? 'bg-primary-fixed-dim' : 'bg-progress-track'}"
-          style="height:${d.xp ? pct : 6}%;animation-delay:${0.05 + i * 0.05}s"></div>
-      </div>
-      <span class="text-label-sm ${today ? 'text-primary font-semibold' : 'text-on-surface-variant'}">${DOW[d.date.getDay()]}</span>
-    </div>`;
-  }).join('');
+  const xps = days.map((d) => (d.future ? null : d.xp));
   return `
   <div class="bg-surface rounded-3xl p-6 flex flex-col gap-4 shadow-card">
     <div class="flex items-center justify-between">
       <h3 class="text-headline-sm font-headline text-on-surface">This week</h3>
       <span class="font-mono text-label-md text-on-surface-variant">${weekTotal} XP</span>
     </div>
-    <div class="relative flex items-end gap-1.5" style="height:96px">
-      <div class="absolute left-0 right-0 border-t border-dashed border-flame/60 flex justify-end" style="bottom:${goalPct}%">
-        <span class="text-[10px] font-mono text-flame -mt-3.5 bg-surface px-1">goal ${goal}</span>
-      </div>
-      ${bars}
-    </div>
+    ${xpWeekChart([{ xps, color: 'primary' }])}
   </div>`;
 }
 
@@ -84,8 +81,9 @@ export function mount(root) {
     fetchWeakWords(10).catch(() => []),
     fetchAttemptEvents().catch(() => []),
     fetchPackProgress().catch(() => []),
+    fetchPackCoverage().catch(() => []),
     fetchStreakState().catch(() => null),
-  ]).then(([accuracy, weak, events, progress, streakState]) => {
+  ]).then(([accuracy, weak, events, progress, coverage, streakState]) => {
     const byDay = dailyXp(events);
     const qual = qualifyingDays(byDay, goal, streakState?.freezeDays);
     const streak = streakState?.streak ?? computeStreak(qual);
@@ -98,6 +96,12 @@ export function mount(root) {
     const mastered = progress.reduce((s, r) => s + (r.mastered ?? 0), 0);
     const totalWords = progress.reduce((s, r) => s + (r.word_count ?? 0), 0);
     const masteryRatio = totalWords > 0 ? mastered / totalWords : 0;
+    // Overall Progress = the 25/75 coverage formula over library-wide sums.
+    const overallProgress = coverageRatio({
+      word_count: coverage.reduce((s, r) => s + (r.word_count ?? 0), 0),
+      reviewed: coverage.reduce((s, r) => s + Number(r.reviewed ?? 0), 0),
+      practiced: coverage.reduce((s, r) => s + Number(r.practiced ?? 0), 0),
+    });
     const packs = packsCompleted(progress);
     const xp = totalXp(events);
     const lvl = levelForXp(xp);
@@ -116,8 +120,8 @@ export function mount(root) {
       </div>
     </div>
 
-    <div class="flex gap-3">${freezePip(0 < freezes)}${freezePip(1 < freezes)}</div>
-    <div class="flex gap-3 -mt-1.5">
+    ${freezeBox(freezes)}
+    <div class="flex gap-3">
       ${statTile({ iconName: 'local_fire_department', countTo: streak, label: 'DAY STREAK', iconClass: 'text-flame text-[22px]' })}
       ${statTile({ iconName: 'bolt', countTo: longest, label: 'BEST STREAK' })}
     </div>
@@ -129,7 +133,7 @@ export function mount(root) {
 
     <div class="bg-surface rounded-3xl p-6 flex items-center gap-4 shadow-card">
       <div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
-        ${icon('bolt', 'text-primary text-[24px]')}
+        ${icon('circle_arrow_up', 'text-primary text-[24px]')}
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline justify-between">
@@ -141,17 +145,15 @@ export function mount(root) {
       </div>
     </div>
 
-    ${weeklyChart(byDay, goal)}
+    ${weeklyChart(byDay)}
 
-    <div class="bg-surface rounded-3xl p-6 flex flex-col gap-3 shadow-card">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          ${icon('workspace_premium', 'text-primary text-[22px]')}
-          <h3 class="text-headline-sm font-headline text-on-surface">Library mastery</h3>
-        </div>
-        <span class="font-mono text-headline-sm text-primary">${Math.round(masteryRatio * 100)}%</span>
+    <div class="bg-surface rounded-3xl p-6 flex flex-col gap-4 shadow-card">
+      <div class="flex items-center gap-2.5">
+        ${icon('workspace_premium', 'text-primary text-[22px]')}
+        <h3 class="text-headline-sm font-headline text-on-surface">Library</h3>
       </div>
-      ${progressBar(masteryRatio, { height: 10 })}
+      ${libBar('Progress', overallProgress, 'bg-primary-fixed-dim', 'text-on-surface')}
+      ${libBar('Mastery', masteryRatio, 'bg-mastery', 'text-mastery')}
       <span class="text-body-sm text-on-surface-variant">${mastered} of ${totalWords} words mastered</span>
     </div>
 

@@ -4,7 +4,10 @@
 import { recordAttempt } from '../api/queries.js';
 import { navigate } from '../router.js';
 import { haptic } from '../lib/feedback.js';
-import { esc, icon, progressBar, setProgress } from '../ui.js';
+import { setBestTimeIfBetter } from '../store.js';
+import { clearLeaveGuard, setLeaveGuard } from '../lib/leaveGuard.js';
+import { setSessionSummary } from '../lib/sessionSummary.js';
+import { confirmSheet, esc, icon, progressBar, setProgress, startStopwatch, stopwatchChip } from '../ui.js';
 
 const optionPalette = {
   correct: { box: 'bg-secondary-fixed border-secondary text-on-surface', ic: 'check_circle', icCls: 'text-secondary' },
@@ -16,9 +19,10 @@ const optionPalette = {
 /**
  * @param {HTMLElement} container
  * @param {{items:Array, packId:number, exerciseType:string, headerLabel:string,
- *          onFinished?:(correct:number,total:number)=>void}} opts
+ *          trackTime?:boolean, onFinished?:(correct:number,total:number)=>void}} opts
+ * @returns {{destroy:()=>void}} teardown to run on unmount (stops the timer, clears the leave guard)
  */
-export function mountMcqSession(container, { items, packId, exerciseType, headerLabel, onFinished }) {
+export function mountMcqSession(container, { items, packId, exerciseType, headerLabel, trackTime = false, onFinished }) {
   let index = 0;
   let selectedId = null;
   let correctCount = 0;
@@ -29,9 +33,12 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
   container.innerHTML = `
     <div class="flex-1 flex flex-col px-5 min-h-0">
       <div class="mt-2 flex flex-col gap-2 shrink-0">
-        <div class="flex justify-between items-center">
-          <span class="text-label-sm uppercase text-on-surface-variant">${esc(headerLabel)}</span>
-          <span data-counter class="font-mono text-label-md text-primary"></span>
+        <div class="flex justify-between items-center gap-2">
+          <span class="text-label-sm uppercase text-on-surface-variant truncate">${esc(headerLabel)}</span>
+          <div class="flex items-center gap-2 shrink-0">
+            ${trackTime ? stopwatchChip() : ''}
+            <span data-counter class="font-mono text-label-md text-primary"></span>
+          </div>
         </div>
         <div data-progress>${progressBar(1 / items.length)}</div>
       </div>
@@ -43,6 +50,18 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
   const progressEl = container.querySelector('[data-progress]');
   const questionEl = container.querySelector('[data-question]');
   const footerEl = container.querySelector('[data-footer]');
+
+  // The three graded pack exercises are timed; the AI Coach and revision aren't.
+  const timer = trackTime ? startStopwatch(container) : null;
+  const cleanup = () => { timer?.destroy(); clearLeaveGuard(); };
+  if (trackTime) {
+    setLeaveGuard(() => confirmSheet({
+      title: 'Leave exercise?',
+      message: 'Your progress in this session will be lost.',
+      confirmLabel: 'Leave',
+      onConfirm: () => { cleanup(); history.back(); },
+    }));
+  }
 
   const draw = () => {
     const item = items[index];
@@ -116,6 +135,12 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
 
   const next = () => {
     if (index === items.length - 1) {
+      if (trackTime) {
+        const seconds = Math.round(timer.elapsed());
+        const isBest = setBestTimeIfBetter(packId, exerciseType, seconds);
+        setSessionSummary({ seconds, isBest });
+      }
+      cleanup();
       onFinished?.(correctCount, items.length);
       navigate(`#/results/${correctCount}/${items.length}`, { replace: true });
       return;
@@ -127,4 +152,5 @@ export function mountMcqSession(container, { items, packId, exerciseType, header
   };
 
   draw();
+  return { destroy: cleanup };
 }

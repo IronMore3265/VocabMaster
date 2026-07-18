@@ -35,11 +35,11 @@ export async function ensurePermission() {
   }
 }
 
-// The next occurrence of `hour` today or tomorrow — never a time in the past, or
-// the OS fires it instantly.
-function nextAt(hour) {
+// The next occurrence of `hour:minute` today or tomorrow — never a time in the
+// past, or the OS fires it instantly.
+function nextAt(hour, minute = 0) {
   const at = new Date();
-  at.setHours(hour, 0, 0, 0);
+  at.setHours(hour, minute, 0, 0);
   if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
   return at;
 }
@@ -69,14 +69,14 @@ export async function rescheduleReminders({ streak = 0, goalMet = false } = {}) 
         id: STREAK_ID,
         title: 'Time to practise',
         body,
-        schedule: { at: nextAt(s.reminderHour), allowWhileIdle: true },
+        schedule: { at: nextAt(s.reminderHour, s.reminderMinute), allowWhileIdle: true },
       });
       // A softer nudge a couple of hours later, only if still unmet by then.
       notifications.push({
         id: NUDGE_ID,
         title: 'Your streak is waiting',
         body: 'Practise with a friend today to keep your streaks going together.',
-        schedule: { at: nextAt((s.reminderHour + 2) % 24), allowWhileIdle: true },
+        schedule: { at: nextAt((s.reminderHour + 2) % 24, s.reminderMinute), allowWhileIdle: true },
       });
     }
     if (notifications.length) await LN.schedule({ notifications });

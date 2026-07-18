@@ -5,12 +5,12 @@
 // app's own vocabulary so a future change of icon set is a one-file edit.
 import {
   Activity, ArrowLeft, ArrowLeftRight, ArrowRight, Award, Bell, BookA, BookOpen,
-  BookmarkCheck, BookmarkPlus, Check, CheckCheck, ChevronRight, CircleCheckBig,
-  CircleUserRound, CircleX, Combine, Copy, Delete, Download, Eye, EyeOff, Flame,
-  Gift, GraduationCap, Hand, History, Hourglass, Layers, Library, LogOut, Moon,
-  Palette, PenLine, Play, RefreshCw, RotateCcw, ScrollText, Search, Settings,
-  Smile, Snowflake, Sparkles, Sun, SunMoon, Target, TextAlignStart, TrendingUp,
-  Trash2, TriangleAlert, UserPlus, Users, Volume2, X, Zap,
+  BookmarkCheck, BookmarkPlus, Check, CheckCheck, ChevronRight, CircleArrowUp,
+  CircleCheckBig, CircleUserRound, CircleX, Combine, Copy, Delete, Download, Eye,
+  EyeOff, Flame, Gift, GraduationCap, Hand, History, Hourglass, Layers, Library,
+  LogOut, Moon, Palette, PenLine, Play, RefreshCw, RotateCcw, ScrollText, Search,
+  Settings, Smile, Snowflake, Sparkles, Sun, SunMoon, Target, TextAlignStart,
+  Timer, TrendingUp, Trash2, TriangleAlert, UserPlus, Users, Volume2, X, Zap,
 } from 'lucide';
 
 export const ICONS = {
@@ -58,9 +58,11 @@ export const ICONS = {
   target: Target,
   trending_up: TrendingUp,
   bolt: Zap,
+  circle_arrow_up: CircleArrowUp, // level
   ac_unit: Snowflake, // streak freeze
   task_alt: CheckCheck, // packs completed
   notifications: Bell,
+  timer: Timer, // exercise stopwatch
 
   // ai coach
   auto_awesome: Sparkles,

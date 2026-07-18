@@ -16,6 +16,12 @@ dist/
 *.keystore
 *.jks
 
+# Store-listing screenshot editor (scaffolded by the app-store-screenshots skill
+# into store-screenshots/). The Next.js editor is disposable — re-scaffold it from
+# the skill instead of tracking it. Only the exported images are committed.
+store-screenshots/*
+!store-screenshots/exports/
+
 # logs / debug
 npm-debug.*
 yarn-debug.*

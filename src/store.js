@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = {
   dailyGoal: 100, // XP/day that a streak day requires (mirrors profiles.daily_goal)
   notifications: false, // local practice reminders (opt-in, needs OS permission)
   reminderHour: 20, // hour of day (0-23) for the daily streak reminder
+  reminderMinute: 0, // minute (0-59) for the daily streak reminder
 };
 
 export function getSettings() {
@@ -67,6 +68,36 @@ export function getStreakCelebratedDay() {
 
 export function setStreakCelebratedDay(dayKey) {
   save('streak.celebratedDay', dayKey);
+}
+
+// ---------- level-up celebration (once per level) ----------
+// The full-screen level-up fires the first time lifetime XP crosses into a new
+// level; this stamps the highest level already celebrated so it doesn't replay.
+export function getLevelCelebrated() {
+  return load('level.celebrated', 0) || 0;
+}
+
+export function setLevelCelebrated(level) {
+  save('level.celebrated', level);
+}
+
+// ---------- exercise best times (device-local personal bests) ----------
+// Fastest completion, in seconds, per pack + exercise type. Keyed "packId:type".
+export function getBestTime(packId, type) {
+  const map = load('practice.bestTimes', {});
+  const v = map[`${packId}:${type}`];
+  return typeof v === 'number' ? v : null;
+}
+
+/** Records `seconds` when it beats the stored best; returns true if it's a new best. */
+export function setBestTimeIfBetter(packId, type, seconds) {
+  const key = `${packId}:${type}`;
+  const map = load('practice.bestTimes', {});
+  const prev = map[key];
+  if (typeof prev === 'number' && prev <= seconds) return false;
+  map[key] = seconds;
+  save('practice.bestTimes', map);
+  return true;
 }
 
 // ---------- friend requests seen (tab badge) ----------
@@ -114,4 +145,6 @@ export function clearLocalUserData() {
   clearRememberedEmail();
   save('ai.introSeen', false);
   save('dictionary.recent', []);
+  save('level.celebrated', 0);
+  save('practice.bestTimes', {});
 }

@@ -64,6 +64,8 @@
   --color-flame: #f97316;
   --color-flame-dim: #fdba74;
   --color-on-flame: #ffffff;
+  /* Mastery = the gold "earned it" bar, distinct from the blue progress bar. */
+  --color-mastery: #f59e0b;
 
   --text-headline-lg: 24px;
   --text-headline-lg--line-height: 32px;
@@ -129,6 +131,7 @@
   --color-flame: #fb923c;
   --color-flame-dim: #7c2d12;
   --color-on-flame: #1a0e00;
+  --color-mastery: #fbbf24;
   --color-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 .dark {
@@ -186,6 +189,12 @@ input, textarea {
   font-family: var(--font-sans);
 }
 .dark input[type='date'], .dark input[type='time'] { color-scheme: dark; }
+
+/* ---------- Time-wheel picker ---------- */
+/* Hide the scrollbars so each column reads as a solid wheel, and dim the rows
+   that aren't the centred selection. */
+.wheel-col { scrollbar-width: none; -ms-overflow-style: none; }
+.wheel-col::-webkit-scrollbar { display: none; }
 
 /* ---------- Exercise tiles — pastel fill in light, pastel ink in dark ---------- */
 /* (matches exercisePastels / exercisePastelText: dark moves the hue to text) */

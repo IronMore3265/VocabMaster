@@ -3,11 +3,17 @@ import { navigate } from '../router.js';
 import { haptic } from '../lib/feedback.js';
 import { makeMatchingRounds } from '../lib/matching.js';
 import { mulberry32, newSeed, shuffle } from '../lib/rng.js';
-import { esc, progressBar, spinner, subHeader } from '../ui.js';
+import { setBestTimeIfBetter } from '../store.js';
+import { clearLeaveGuard, setLeaveGuard } from '../lib/leaveGuard.js';
+import { setSessionSummary } from '../lib/sessionSummary.js';
+import {
+  confirmSheet, esc, progressBar, spinner, startStopwatch, stopwatchChip, subHeader,
+} from '../ui.js';
 
 export function render() {
+  // The stopwatch lives in the header so it survives each round's body redraw.
   return `
-  ${subHeader('')}
+  ${subHeader('', stopwatchChip())}
   <main class="pt-page pb-page-sub px-5">
     <div data-body>
       <div class="flex justify-center py-10">${spinner()}</div>
@@ -29,6 +35,15 @@ export function mount(root, packId) {
   let missed = new Set();
   let firstTryCorrect = 0;
   let pairsDone = 0;
+
+  const timer = startStopwatch(root);
+  const cleanup = () => { timer?.destroy(); clearLeaveGuard(); };
+  setLeaveGuard(() => confirmSheet({
+    title: 'Leave exercise?',
+    message: 'Your progress in this session will be lost.',
+    confirmLabel: 'Leave',
+    onConfirm: () => { cleanup(); history.back(); },
+  }));
 
   Promise.all([fetchPacks(), fetchPackWords(id)])
     .then(([packs, words]) => {
@@ -136,6 +151,10 @@ export function mount(root, packId) {
 
       if (matched.size === round.pairs.length) {
         if (roundIndex === rounds.length - 1) {
+          const seconds = Math.round(timer.elapsed());
+          const isBest = setBestTimeIfBetter(id, 'matching', seconds);
+          setSessionSummary({ seconds, isBest });
+          cleanup();
           navigate(`#/results/${firstTryCorrect}/${totalPairs}`, { replace: true });
           return;
         }
@@ -157,4 +176,6 @@ export function mount(root, packId) {
       setTimeout(() => { if (!matched.has(defWordId)) refreshStyles(); }, 500);
     }
   }
+
+  return () => cleanup();
 }

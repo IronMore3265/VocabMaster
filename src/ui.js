@@ -183,11 +183,13 @@ export function bindPasswordPeek(scope) {
 }
 
 // ---------- progress ----------
-export function progressBar(ratio, { height = 8, className = '' } = {}) {
+// `fillClass` recolours the bar — the blue default is "progress"; pass
+// 'bg-mastery' for the gold mastery bar.
+export function progressBar(ratio, { height = 8, className = '', fillClass = 'bg-primary-fixed-dim' } = {}) {
   const pct = Math.min(100, Math.max(0, ratio * 100));
   return `
   <div class="w-full rounded-full bg-progress-track overflow-hidden ${className}" style="height:${height}px">
-    <div data-fill class="grow-x progress-fill h-full rounded-full bg-primary-fixed-dim" style="width:${pct}%"></div>
+    <div data-fill class="grow-x progress-fill h-full rounded-full ${fillClass}" style="width:${pct}%"></div>
   </div>`;
 }
 
@@ -218,44 +220,123 @@ export function progressRing({ progress = 0, size = 96, stroke = 10, label } = {
   </div>`;
 }
 
+// Literal Tailwind classes so the JIT scanner generates them (dynamic
+// `stroke-${x}` strings would be missed).
+const CHART_COLORS = {
+  primary: { stroke: 'stroke-primary', fill: 'fill-primary', dot: 'bg-primary' },
+  flame: { stroke: 'stroke-flame', fill: 'fill-flame', dot: 'bg-flame' },
+};
+
+// Round a raw max up to a friendly axis top so the y-labels read as round numbers.
+function niceCeil(v) {
+  if (v <= 0) return 10;
+  const pow = 10 ** Math.floor(Math.log10(v));
+  const steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  for (const s of steps) {
+    if (s * pow >= v) return s * pow;
+  }
+  return 10 * pow;
+}
+
 /**
- * A two-line XP-over-time chart (you vs a friend), inline SVG in the progressRing
- * spirit. `mine`/`theirs` are equal-length [{ day, xp }] series oldest→newest.
- * You draw in the blue primary, the friend in flame orange.
+ * A weekly XP line chart, Sunday→Saturday, inline SVG. `series` is one or two
+ * `{ xps, color, label, total }`, where `xps` is 7 entries (Sun→Sat) and a `null`
+ * entry (a future day this week) is left unplotted. Circular points per day, a
+ * dynamic numeric y-axis, and fixed S M T W T F S labels. `legend` shows each
+ * series' label + weekly total (used by Compare); Analytics passes one series.
  */
-export function xpLineChart(mine, theirs, { myLabel = 'You', theirLabel = 'Them' } = {}) {
+export function xpWeekChart(series, { legend = false } = {}) {
   const W = 320;
-  const H = 140;
-  const padL = 4;
-  const padR = 4;
-  const padT = 8;
-  const padB = 8;
-  const n = Math.max(mine.length, theirs.length, 2);
-  const max = Math.max(1, ...mine.map((d) => d.xp), ...theirs.map((d) => d.xp));
-  const x = (i) => padL + (i * (W - padL - padR)) / (n - 1);
-  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
-  const line = (s) => s.map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(d.xp).toFixed(1)}`).join(' ');
-  const grid = [0.25, 0.5, 0.75, 1].map((f) => {
-    const gy = (padT + (H - padT - padB) * (1 - f)).toFixed(1);
-    return `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" class="stroke-progress-track" stroke-width="1" stroke-dasharray="2 4"/>`;
+  const H = 152;
+  const padL = 26;
+  const padR = 8;
+  const padT = 10;
+  const padB = 22;
+  const cols = 7;
+  const vals = series.flatMap((s) => s.xps.filter((v) => v != null));
+  const top = niceCeil(Math.max(1, ...vals));
+  const x = (i) => padL + (i * (W - padL - padR)) / (cols - 1);
+  const y = (v) => padT + (H - padT - padB) * (1 - v / top);
+
+  const grid = [0, top / 2, top].map((t) => {
+    const gy = y(t);
+    return `
+      <line x1="${padL}" y1="${gy.toFixed(1)}" x2="${W - padR}" y2="${gy.toFixed(1)}"
+        class="stroke-progress-track" stroke-width="1" ${t === 0 ? '' : 'stroke-dasharray="2 4"'}/>
+      <text x="${(padL - 6).toFixed(1)}" y="${(gy + 3).toFixed(1)}" text-anchor="end"
+        class="fill-on-surface-variant" style="font-size:9px">${Math.round(t)}</text>`;
   }).join('');
-  const legendDot = (colorCls, label) => `
-    <span class="flex items-center gap-1.5 text-label-sm text-on-surface-variant">
-      <span class="w-2.5 h-2.5 rounded-full ${colorCls}"></span>${esc(label)}
-    </span>`;
+
+  const seriesSvg = series.map((s) => {
+    const c = CHART_COLORS[s.color] ?? CHART_COLORS.primary;
+    const pts = s.xps.map((v, i) => (v == null ? null : { x: x(i), y: y(v) })).filter(Boolean);
+    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const dots = pts.map((p) =>
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" class="${c.fill} stroke-surface" stroke-width="1.5"/>`).join('');
+    return `
+      <path d="${path}" fill="none" class="${c.stroke}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}`;
+  }).join('');
+
+  const xLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) =>
+    `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" class="fill-on-surface-variant" style="font-size:10px">${d}</text>`).join('');
+
+  const legendHtml = legend ? `
+    <div class="flex items-center gap-4 flex-wrap">
+      ${series.map((s) => {
+        const c = CHART_COLORS[s.color] ?? CHART_COLORS.primary;
+        return `
+        <span class="flex items-center gap-1.5 text-label-sm text-on-surface-variant">
+          <span class="w-2.5 h-2.5 rounded-full ${c.dot}"></span>${esc(s.label)}
+          <span class="font-mono text-on-surface">${s.total} XP</span>
+        </span>`;
+      }).join('')}
+    </div>` : '';
+
   return `
   <div class="flex flex-col gap-2">
-    <div class="flex items-center gap-4">
-      ${legendDot('bg-primary', myLabel)}
-      ${legendDot('bg-flame', theirLabel)}
-      <span class="ml-auto font-mono text-label-sm text-on-surface-variant">peak ${max} XP</span>
-    </div>
-    <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" preserveAspectRatio="none" role="img" aria-label="XP over time">
+    ${legendHtml}
+    <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="Weekly XP">
       ${grid}
-      <path d="${line(theirs)}" fill="none" class="stroke-flame" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="${line(mine)}" fill="none" class="stroke-primary" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${seriesSvg}
+      ${xLabels}
     </svg>
   </div>`;
+}
+
+// ---------- stopwatch ----------
+/** Seconds → "m:ss" (or "h:mm:ss" past an hour). */
+export function fmtTime(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  const m = Math.floor(s / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  if (m < 60) return `${m}:${ss}`;
+  const h = Math.floor(m / 60);
+  return `${h}:${String(m % 60).padStart(2, '0')}:${ss}`;
+}
+
+/** An app-themed timer pill; `startStopwatch` drives its `[data-stopwatch]` text. */
+export function stopwatchChip() {
+  return `
+  <div class="flex items-center gap-1.5 bg-surface-container rounded-full px-3 py-1.5">
+    ${icon('timer', 'text-primary text-[16px]')}
+    <span data-stopwatch class="font-mono text-label-md text-on-surface tabular-nums">0:00</span>
+  </div>`;
+}
+
+/**
+ * Ticks a rendered stopwatchChip once a second from now. Returns `elapsed()`
+ * (seconds since start) and `destroy()` (stops the interval) — call destroy when
+ * the exercise unmounts so the timer can't outlive the screen.
+ */
+export function startStopwatch(scope) {
+  const el = scope?.querySelector('[data-stopwatch]');
+  const start = Date.now();
+  const elapsed = () => (Date.now() - start) / 1000;
+  const paint = () => { if (el) el.textContent = fmtTime(elapsed()); };
+  paint();
+  const id = setInterval(paint, 1000);
+  return { elapsed, destroy: () => clearInterval(id) };
 }
 
 // ---------- cards / tiles ----------
@@ -313,17 +394,19 @@ export function reviseCard(route, rev) {
   const hint = due > 0
     ? `${due} word${due === 1 ? '' : 's'} due for review`
     : `${seen} word${seen === 1 ? '' : 's'} practised · oldest first`;
+  // Deliberately unlike a word-pack card — a green-tinted, larger, rounder box
+  // with a square icon badge — so Revise is instantly recognisable in the list.
   return `
-  <button data-nav="${route}" class="bg-surface rounded-3xl p-5 flex items-center gap-4 shadow-card active:scale-[0.98] transition-transform">
-    <div class="w-11 h-11 rounded-full bg-primary-fixed flex items-center justify-center shrink-0 relative">
-      ${icon('revise', 'text-primary')}
-      ${due > 0 ? '<span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-surface"></span>' : ''}
+  <button data-nav="${route}" class="w-full bg-secondary-container border border-secondary/25 rounded-[28px] p-6 flex items-center gap-4 shadow-card active:scale-[0.98] transition-transform">
+    <div class="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center shrink-0 relative">
+      ${icon('revise', 'text-on-secondary')}
+      ${due > 0 ? '<span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-flame border-2 border-secondary-container"></span>' : ''}
     </div>
     <div class="flex-1 min-w-0 text-left">
-      <p class="text-body-md text-on-surface">Revise</p>
-      <p class="text-body-sm text-on-surface-variant truncate">${esc(hint)}</p>
+      <p class="text-body-md font-medium text-on-secondary-container">Revise</p>
+      <p class="text-body-sm text-on-secondary-container/80 truncate">${esc(hint)}</p>
     </div>
-    ${icon('chevron_right', 'text-outline-variant shrink-0')}
+    ${icon('chevron_right', 'text-on-secondary-container/60 shrink-0')}
   </button>`;
 }
 
@@ -602,6 +685,100 @@ export function bindToggles(scope, onChange) {
       onChange(btn.getAttribute('data-toggle'), on);
     });
   });
+}
+
+// ---------- time wheel (reminder picker) ----------
+// An iOS-style scroll-snap picker for hour (1–12) / minute / AM–PM. Columns snap,
+// a centred band marks the selection, and top/bottom fades imply the wheel. Stores
+// nothing itself — bindTimeWheel reads the snapped rows back as 24h hour + minute.
+const WHEEL_ITEM_H = 40;
+const WHEEL_VISIBLE = 5; // odd, so one row centres under the band
+const WHEEL_PAD = ((WHEEL_VISIBLE - 1) / 2) * WHEEL_ITEM_H;
+
+// 24h hour + minute → the three column indices.
+function timeToIndices(hour24, minute) {
+  const h12 = (hour24 % 12) || 12;
+  return { h: h12 - 1, m: minute, ap: hour24 < 12 ? 0 : 1 };
+}
+
+function wheelColumn(name, items, idx) {
+  const rows = items.map((it, i) =>
+    `<div data-i="${i}" class="wheel-item snap-center flex items-center justify-center font-mono text-body-lg text-on-surface" style="height:${WHEEL_ITEM_H}px">${it}</div>`).join('');
+  return `
+  <div data-wheel="${name}" class="wheel-col flex-1 overflow-y-auto snap-y snap-mandatory" style="height:${WHEEL_VISIBLE * WHEEL_ITEM_H}px">
+    <div style="height:${WHEEL_PAD}px"></div>
+    ${rows}
+    <div style="height:${WHEEL_PAD}px"></div>
+  </div>`;
+}
+
+export function timeWheel({ hour = 20, minute = 0 } = {}) {
+  const { h, m, ap } = timeToIndices(hour, minute);
+  const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
+  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+  return `
+  <div data-time-wheel class="relative select-none">
+    <div class="pointer-events-none absolute left-0 right-0 top-1/2 -translate-y-1/2 z-10 rounded-xl bg-primary/10 border-y border-primary/40" style="height:${WHEEL_ITEM_H}px"></div>
+    <div class="flex gap-2 px-2">
+      ${wheelColumn('hour', hours, h)}
+      <div class="flex items-center font-mono text-body-lg text-on-surface-variant">:</div>
+      ${wheelColumn('minute', minutes, m)}
+      ${wheelColumn('ampm', ['AM', 'PM'], ap)}
+    </div>
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-surface to-transparent"></div>
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface to-transparent"></div>
+  </div>`;
+}
+
+/**
+ * Wires a rendered timeWheel: sets each column to its start row, and settles
+ * selections on scroll-end. Returns `get()` → { hour (0–23), minute } and
+ * calls `onChange(hour, minute)` after each settle. `destroy()` unbinds.
+ */
+export function bindTimeWheel(scope, { hour = 20, minute = 0, onChange } = {}) {
+  const root = scope.querySelector('[data-time-wheel]');
+  const cols = {
+    hour: root.querySelector('[data-wheel="hour"]'),
+    minute: root.querySelector('[data-wheel="minute"]'),
+    ampm: root.querySelector('[data-wheel="ampm"]'),
+  };
+  const { h, m, ap } = timeToIndices(hour, minute);
+  cols.hour.scrollTop = h * WHEEL_ITEM_H;
+  cols.minute.scrollTop = m * WHEEL_ITEM_H;
+  cols.ampm.scrollTop = ap * WHEEL_ITEM_H;
+
+  const indexOf = (el, max) =>
+    Math.max(0, Math.min(max, Math.round(el.scrollTop / WHEEL_ITEM_H)));
+  const get = () => {
+    const h12 = indexOf(cols.hour, 11) + 1;
+    const min = indexOf(cols.minute, 59);
+    const isPm = indexOf(cols.ampm, 1) === 1;
+    const hour24 = (h12 % 12) + (isPm ? 12 : 0);
+    return { hour: hour24, minute: min };
+  };
+
+  // scrollend where supported; otherwise a debounced settle. Snap alignment keeps
+  // the row centred, so reading scrollTop after it settles is exact.
+  const timers = new Map();
+  const settle = () => { const t = get(); onChange?.(t.hour, t.minute); };
+  const onScroll = (el) => {
+    clearTimeout(timers.get(el));
+    timers.set(el, setTimeout(settle, 120));
+  };
+  const listeners = [];
+  for (const el of Object.values(cols)) {
+    const handler = () => onScroll(el);
+    el.addEventListener('scroll', handler, { passive: true });
+    listeners.push([el, handler]);
+  }
+
+  return {
+    get,
+    destroy: () => {
+      for (const [el, handler] of listeners) el.removeEventListener('scroll', handler);
+      for (const t of timers.values()) clearTimeout(t);
+    },
+  };
 }
 
 // ---------- theme chooser (shared by Settings + onboarding) ----------

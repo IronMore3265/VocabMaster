@@ -1,8 +1,20 @@
-import { fetchPackProgress, fetchPackRevision, fetchPacks, progressRatio } from '../api/queries.js';
+import {
+  coverageRatio, fetchPackCoverage, fetchPackProgress, fetchPackRevision, fetchPacks, masteryRatio,
+} from '../api/queries.js';
 import { BOOKS_META, packTitle } from '../lib/models.js';
 import { esc, icon, progressBar, reviseCard, spinner, subHeader } from '../ui.js';
 
-function packCard(pack, progress) {
+// A labelled mini bar for a pack card (blue Progress, gold Mastery).
+function miniBar(label, ratio, fillClass, pctClass) {
+  return `
+  <div class="flex items-center gap-2.5">
+    <span class="w-14 shrink-0 text-label-sm text-on-surface-variant">${label}</span>
+    <div class="flex-1">${progressBar(ratio, { height: 6, fillClass })}</div>
+    <span class="w-9 shrink-0 text-right text-label-sm font-mono ${pctClass}">${Math.round(ratio * 100)}%</span>
+  </div>`;
+}
+
+function packCard(pack, cov, mas) {
   return `
   <button data-nav="#/pack/${pack.id}" class="text-left bg-surface rounded-2xl p-4 flex flex-col gap-3 shadow-card active:scale-[0.98] transition-transform">
     <div class="flex items-center gap-3">
@@ -15,9 +27,9 @@ function packCard(pack, progress) {
       </div>
       ${icon('chevron_right', 'text-outline')}
     </div>
-    <div class="flex items-center gap-2.5">
-      ${progressBar(progress, { height: 6 })}
-      <span class="text-label-sm text-on-surface-variant">${Math.round(progress * 100)}%</span>
+    <div class="flex flex-col gap-1.5">
+      ${miniBar('Progress', cov, 'bg-primary-fixed-dim', 'text-on-surface-variant')}
+      ${miniBar('Mastery', mas, 'bg-mastery', 'text-mastery')}
     </div>
   </button>`;
 }
@@ -49,11 +61,13 @@ export function mount(root, book) {
   Promise.all([
     fetchPacks(),
     fetchPackProgress().catch(() => []),
+    fetchPackCoverage().catch(() => []),
     fetchPackRevision().catch(() => []),
   ])
-    .then(([packs, progress, revision]) => {
+    .then(([packs, progress, coverage, revision]) => {
       const list = packs.filter((p) => p.book === bookNumber);
       const byPack = new Map(progress.map((row) => [row.pack_id, row]));
+      const byCoverage = new Map(coverage.map((row) => [row.pack_id, row]));
       const totalWords = list.reduce((s, p) => s + p.word_count, 0);
       heading.textContent = `${meta.subtitle} · ${totalWords} words in ${list.length} packs`;
 
@@ -64,7 +78,9 @@ export function mount(root, book) {
         due: forBook.reduce((s, r) => s + Number(r.due ?? 0), 0),
       });
 
-      body.innerHTML = list.map((p) => packCard(p, progressRatio(byPack.get(p.id)))).join('');
+      body.innerHTML = list
+        .map((p) => packCard(p, coverageRatio(byCoverage.get(p.id)), masteryRatio(byPack.get(p.id))))
+        .join('');
     })
     .catch(() => {
       body.innerHTML = `<p class="text-body-sm text-error text-center py-10">Couldn't load packs. Check your connection.</p>`;

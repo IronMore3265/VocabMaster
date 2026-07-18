@@ -5,11 +5,22 @@ import {
   fetchFriendFreezes, fetchFriends, fetchFriendStats, fetchFriendXpSeries, fetchMutualStreaks,
   fetchMyProfile, fetchMyStats, fetchMyXpSeries, giftStreakFreeze,
 } from '../api/friends.js';
-import { invalidate } from '../api/queries.js';
+import { invalidate, weekActivity } from '../api/queries.js';
 import { avatarTile } from '../avatars.js';
 import { haptic } from '../lib/feedback.js';
 import { attachPullToRefresh } from '../lib/pullToRefresh.js';
-import { confirmSheet, esc, icon, showSheet, spinner, subHeader, xpLineChart } from '../ui.js';
+import { confirmSheet, esc, icon, showSheet, spinner, subHeader, xpWeekChart } from '../ui.js';
+
+// A [{ day, xp }] series → this week's Sun→Saturday shape { xps, total }, with
+// future days left unplotted (null) so the line stops at today.
+function toWeek(series) {
+  const map = new Map((series ?? []).map((d) => [d.day, Number(d.xp) || 0]));
+  const days = weekActivity(map);
+  return {
+    xps: days.map((d) => (d.future ? null : d.xp)),
+    total: days.reduce((s, d) => s + d.xp, 0),
+  };
+}
 
 export function render() {
   return `
@@ -32,19 +43,24 @@ export function mount(root, friendId) {
         fetchFriendStats(friendId),
         fetchMutualStreaks().catch(() => new Map()),
         fetchFriends().catch(() => ({ accepted: [] })),
-        fetchMyXpSeries(30),
-        fetchFriendXpSeries(friendId, 30).catch(() => []),
+        fetchMyXpSeries(7),
+        fetchFriendXpSeries(friendId, 7).catch(() => []),
         fetchFriendFreezes().catch(() => new Map()),
       ]);
       const friend = (friends.accepted ?? []).find((f) => f.id === friendId) ?? {};
       const mutual = streaks.get(friendId)?.streak ?? 0;
+      const mine = toWeek(mySeries);
+      const theirs = toWeek(theirSeries);
 
       body.innerHTML = `
         ${headerCard(myProfile, friend, them, mutual)}
         ${giftCard(them, freezes.get(friendId))}
         <div class="bg-surface rounded-3xl p-6 flex flex-col gap-3 shadow-card">
-          <h3 class="text-headline-sm font-headline text-on-surface">XP over the last 30 days</h3>
-          ${xpLineChart(mySeries, padSeries(theirSeries, mySeries.length), { myLabel: 'You', theirLabel: them.name })}
+          <h3 class="text-headline-sm font-headline text-on-surface">This week</h3>
+          ${xpWeekChart([
+            { xps: mine.xps, color: 'primary', label: 'You', total: mine.total },
+            { xps: theirs.xps, color: 'flame', label: them.name, total: theirs.total },
+          ], { legend: true })}
         </div>
         ${compareCard(me, them)}`;
       wireGift(them);
@@ -118,15 +134,6 @@ function giftCard(them, theirFreezes) {
     </div>
     <p class="text-body-sm text-on-surface-variant">${esc(them.name)} is topped up on streak freezes.</p>
   </div>`;
-}
-
-// Right-pad/truncate a friend series to match the self series length (defensive:
-// both come from a 30-day window, but a tz edge could differ by one).
-function padSeries(series, len) {
-  if (series.length === len) return series;
-  if (series.length > len) return series.slice(series.length - len);
-  const pad = Array.from({ length: len - series.length }, () => ({ day: '', xp: 0 }));
-  return [...pad, ...series];
 }
 
 function headerCard(myProfile, friend, them, mutual) {

@@ -125,9 +125,32 @@ export function fetchPackProgress() {
   });
 }
 
-export function progressRatio(row) {
+/** Gold "Mastery" bar: words that reached the top SRS box (mastery >= 5). */
+export function masteryRatio(row) {
   if (!row || !row.word_count) return 0;
   return (row.mastered ?? 0) / row.word_count;
+}
+
+/** Per-pack coverage (pack_coverage view) for the blue "Progress" bar. */
+export function fetchPackCoverage() {
+  return cached('pack-coverage', async () => {
+    const { data, error } = await supabase.from('pack_coverage').select('*');
+    if (error) throw error;
+    return data;
+  });
+}
+
+/**
+ * Blue "Progress" bar, distinct from SRS mastery: seeing every flashcard fills
+ * 25%, and answering each word correctly in each of the three graded exercises
+ * fills the other 75% (max practiced = 3 * word_count).
+ */
+export function coverageRatio(row) {
+  const n = row?.word_count ?? 0;
+  if (!n) return 0;
+  const reviewed = Math.min(1, (row.reviewed ?? 0) / n);
+  const practiced = Math.min(1, (row.practiced ?? 0) / (3 * n));
+  return 0.25 * reviewed + 0.75 * practiced;
 }
 
 /** The words of one pack, in book order. */
@@ -290,6 +313,31 @@ export function dailyActivity(xpByDay, n = 7, now = new Date()) {
   return buckets;
 }
 
+/**
+ * XP per day for the current calendar week, Sunday → Saturday (device zone), for
+ * the weekly line chart. `future` marks days after today, which the chart leaves
+ * unplotted. `todayKey` marks today.
+ */
+export function weekActivity(xpByDay, now = new Date()) {
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay()); // back to Sunday
+  const todayKey = localDayKey(now);
+  const buckets = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const key = localDayKey(d);
+    buckets.push({
+      date: d,
+      key,
+      xp: xpByDay.get(key) ?? 0,
+      today: key === todayKey,
+      future: d > now && key !== todayKey,
+    });
+  }
+  return buckets;
+}
+
 // ---------- writes ----------
 
 /**
@@ -312,7 +360,7 @@ export async function recordAttempt({ wordId, packId, type, correct }) {
     return;
   }
   invalidate(
-    'pack-progress', 'exercise-accuracy', 'weak-words', 'attempt-events',
+    'pack-progress', 'pack-coverage', 'exercise-accuracy', 'weak-words', 'attempt-events',
     // An answer moves next_due, so revision state is stale too.
     'pack-revision', 'revision-words',
     // Earning XP today can complete the goal (bumping the streak / clearing a

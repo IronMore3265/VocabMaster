@@ -18,6 +18,7 @@ export function mount(root, packId) {
   const id = Number(packId);
   const seed = newSeed();
   const body = root.querySelector('[data-body]');
+  let session = null;
 
   Promise.all([fetchPacks(), fetchPackWords(id)])
     .then(([packs, words]) => {
@@ -27,14 +28,17 @@ export function mount(root, packId) {
         body.innerHTML = `<p class="text-body-sm text-on-surface-variant text-center py-10">Not enough words to build this exercise.</p>`;
         return;
       }
-      mountMcqSession(body, {
+      session = mountMcqSession(body, {
         items,
         packId: id,
         exerciseType: 'fill_blank',
         headerLabel: `Fill in the blanks · Pack ${pack.pack_number}`,
+        trackTime: true,
       });
     })
     .catch(() => {
       body.innerHTML = `<p class="text-body-sm text-error text-center py-10">Couldn't load words.</p>`;
     });
+
+  return () => session?.destroy();
 }

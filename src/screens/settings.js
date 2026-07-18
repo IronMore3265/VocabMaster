@@ -7,8 +7,8 @@ import { avatarTile } from '../avatars.js';
 import { cancelAllReminders, ensurePermission, rescheduleReminders } from '../lib/notifications.js';
 import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
 import {
-  bindThemeChooser, bindToggles, confirmSheet, esc, icon, showChangelogSheet, showSheet,
-  subHeader, themeChooser, toggleRow,
+  bindThemeChooser, bindTimeWheel, bindToggles, confirmSheet, esc, icon, showChangelogSheet,
+  showSheet, subHeader, themeChooser, timeWheel, toggleRow,
 } from '../ui.js';
 
 const goalBtnCls = (active) =>
@@ -27,12 +27,11 @@ function goalChooser(current) {
   </div>`;
 }
 
-function hourSelect(current) {
-  const opts = Array.from({ length: 24 }, (_, h) => {
-    const label = `${String(h).padStart(2, '0')}:00`;
-    return `<option value="${h}" ${h === current ? 'selected' : ''}>${label}</option>`;
-  }).join('');
-  return `<select data-reminder-hour class="bg-surface-container rounded-lg px-3 py-2 text-body-md text-on-surface">${opts}</select>`;
+// 24h hour + minute → a friendly "8:00 PM" for the reminder row.
+function fmt12(hour, minute) {
+  const ap = hour < 12 ? 'AM' : 'PM';
+  const h12 = (hour % 12) || 12;
+  return `${h12}:${String(minute).padStart(2, '0')} ${ap}`;
 }
 
 function section(title, inner) {
@@ -75,7 +74,10 @@ export function render() {
       ${toggleRow('Practice reminders', 'notifications', s.notifications, { hint: 'A daily nudge to protect your streak' })}
       <div data-reminder-time class="${s.notifications ? '' : 'hidden'} border-t border-progress-track flex items-center justify-between py-3.5">
         <span class="text-body-md text-on-surface">Remind me at</span>
-        ${hourSelect(s.reminderHour)}
+        <button data-reminder-open class="flex items-center gap-1 bg-surface-container rounded-lg pl-3 pr-2 py-2 text-body-md text-on-surface active:opacity-70 transition-opacity">
+          <span data-reminder-label class="font-mono">${fmt12(s.reminderHour, s.reminderMinute)}</span>
+          ${icon('chevron_right', 'text-outline-variant')}
+        </button>
       </div>
     `)}
 
@@ -173,10 +175,25 @@ export function mount(root) {
     }
   });
 
-  // ---------- reminder time ----------
-  root.querySelector('[data-reminder-hour]')?.addEventListener('change', (e) => {
-    setSettings({ reminderHour: Number(e.target.value) });
-    reschedule();
+  // ---------- reminder time (custom wheel picker) ----------
+  root.querySelector('[data-reminder-open]')?.addEventListener('click', () => {
+    const s = getSettings();
+    let wheel;
+    const { el, close } = showSheet(`
+      <h2 class="text-headline-sm font-headline text-on-surface mb-1">Remind me at</h2>
+      <p class="text-body-sm text-on-surface-variant mb-4">Pick when your daily practice nudge arrives.</p>
+      ${timeWheel({ hour: s.reminderHour, minute: s.reminderMinute })}
+      <button data-done class="w-full mt-5 py-3 rounded-full bg-primary text-on-primary text-body-sm">Done</button>`,
+    { onClose: () => wheel?.destroy() });
+    wheel = bindTimeWheel(el, { hour: s.reminderHour, minute: s.reminderMinute });
+    el.querySelector('[data-done]').addEventListener('click', () => {
+      const { hour, minute } = wheel.get();
+      setSettings({ reminderHour: hour, reminderMinute: minute });
+      const label = root.querySelector('[data-reminder-label]');
+      if (label) label.textContent = fmt12(hour, minute);
+      close();
+      reschedule();
+    });
   });
 
   // Account card — a way through to Profile, which owns identity now. Editing

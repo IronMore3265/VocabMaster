@@ -9,6 +9,7 @@ import {
   closeTopSheet, icon, refreshProfileAvatar, setUnseenRequests, showChangelogSheet, showSheet,
 } from './ui.js';
 import { haptic } from './lib/feedback.js';
+import { runLeaveGuard } from './lib/leaveGuard.js';
 import {
   pauseFriendsRealtime, resumeFriendsRealtime, startFriendsRealtime, stopFriendsRealtime,
 } from './api/realtime.js';
@@ -16,6 +17,7 @@ import { fetchStreakState } from './api/queries.js';
 import { fetchFriends, fetchMyStats } from './api/friends.js';
 import { syncDailyGoal } from './api/account.js';
 import { cancelAllReminders, rescheduleReminders } from './lib/notifications.js';
+import { primeLevelBaseline } from './lib/streakCelebration.js';
 
 import * as onboarding from './screens/onboarding.js';
 import * as signIn from './screens/sign-in.js';
@@ -81,6 +83,8 @@ document.addEventListener('click', (e) => {
   if (nav.closest('.vt-bottomnav')) haptic.light();
   const target = nav.getAttribute('data-nav');
   if (target === 'back') {
+    // An exercise in progress can intercept this to confirm leaving.
+    if (runLeaveGuard()) return;
     if (history.length > 1) history.back();
     else navigate('#/library');
   } else if (target === 'menu') {
@@ -146,6 +150,7 @@ async function bootstrapSession() {
   startFriendsRealtime(userId);
   try { await syncDailyGoal(); } catch { /* offline — device setting stands */ }
   fetchStreakState().catch(() => {}); // prime + run the day-boundary freeze bookkeeping
+  primeLevelBaseline(); // seed the level-up baseline before any session can pop it
   refreshRemindersAndBadge();
 }
 
@@ -158,6 +163,8 @@ import('@capacitor/app')
   .then(({ App }) => {
     App.addListener('backButton', ({ canGoBack }) => {
       if (closeTopSheet()) return;
+      // An exercise in progress can intercept this to confirm leaving.
+      if (runLeaveGuard()) return;
       const hash = location.hash || '#/library';
       if (hash === '#/library' || hash === '#/onboarding' || hash === '#/sign-in') App.exitApp();
       else if (canGoBack) history.back();

@@ -2,6 +2,21 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.0.0',
+    date: '2026-07-18',
+    notes: [
+      'Progress and mastery are now two separate bars: a blue Progress bar fills as you review and answer correctly, while a gold Mastery bar only grows as words survive the spaced-review ladder — so finishing a pack no longer “masters” it on its own.',
+      'Flashcards are pure review now — no right or wrong. Flip through at your own pace and finish with a simple “you reviewed N words”. They still earn XP toward your goal, and no longer skew your accuracy.',
+      'Matching, Fill-in-the-blanks and Synonym/Antonym now show a stopwatch that runs while you practise, save your best time per pack, and warn you before you leave and lose a session.',
+      'Rebuilt the weekly XP chart as a Sunday-to-Saturday line with a point for each day and a real number axis — and did the same on Compare, now a per-week race showing each of you your total XP for the week.',
+      'Streak freezes now sit in a labelled box so it’s clear how many you have, and your level uses a new level-up badge.',
+      'Added a level-up celebration when your XP crosses into a new level.',
+      'The streak celebration no longer prints the number inside the flame — just the flame and your streak below it.',
+      'Revise now stands out with its own green card, distinct from the word packs.',
+      'The practice-reminder time picker is a proper scrolling wheel for the hour, minute and AM/PM.',
+    ],
+  },
+  {
     version: '6.1.0',
     date: '2026-07-18',
     notes: [
