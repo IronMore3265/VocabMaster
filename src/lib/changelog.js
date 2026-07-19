@@ -2,6 +2,13 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.5',
+    date: '2026-07-19',
+    notes: [
+      'Practice reminders now carry the VocabMaster icon — the blue tile with the white book — instead of a generic system symbol.',
+    ],
+  },
+  {
     version: '7.2.4',
     date: '2026-07-19',
     notes: [

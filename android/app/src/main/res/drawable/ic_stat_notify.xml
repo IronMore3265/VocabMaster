@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <!-- VocabMaster open-book mark as a solid silhouette. Notification small
+         icons are treated as alpha masks: only the shape matters, the system
+         tints it (iconColor in capacitor.config.json). Scaled ~1.15x around the
+         book's centre so it fills the status-bar glyph instead of floating small. -->
+    <group
+        android:pivotX="32"
+        android:pivotY="34.5"
+        android:scaleX="1.15"
+        android:scaleY="1.15">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M31 50L23 28C18 22 12 19 8 19Q6 19 6 21L6 40Q6 42 8 42C16 42 25 45 31 50Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M33 50L41 28C46 22 52 19 56 19Q58 19 58 21L58 40Q58 42 56 42C48 42 39 45 33 50Z" />
+    </group>
+</vector>

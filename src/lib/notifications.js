@@ -10,6 +10,13 @@ const NUDGE_ID = 1002; // gentle friends nudge, a bit later
 const REQUEST_ID = 2001; // "someone added you" heads-up (fires immediately)
 const GIFT_ID = 2002; // "someone gave you a streak freeze" heads-up
 
+// The full-colour VocabMaster mark (blue tile, white book) shown as the
+// notification's large icon — a raster PNG in res/drawable-nodpi. This is the
+// only place Android renders the app icon in colour: the small (status-bar)
+// icon is always flattened to a single tint by the OS, so it stays the white
+// book silhouette (ic_stat_notify, tinted via iconColor in capacitor.config).
+const LARGE_ICON = 'ic_notify_large';
+
 let pluginPromise = null;
 
 // Resolves to the plugin *module*, never the LocalNotifications proxy itself.
@@ -76,6 +83,7 @@ export async function rescheduleReminders({ streak = 0, goalMet = false } = {}) 
         id: STREAK_ID,
         title: 'Time to practise',
         body,
+        largeIcon: LARGE_ICON,
         schedule: { at: nextAt(s.reminderHour, s.reminderMinute), allowWhileIdle: true },
       });
       // A softer nudge a couple of hours later, only if still unmet by then.
@@ -83,6 +91,7 @@ export async function rescheduleReminders({ streak = 0, goalMet = false } = {}) 
         id: NUDGE_ID,
         title: 'Your streak is waiting',
         body: 'Practise with a friend today to keep your streaks going together.',
+        largeIcon: LARGE_ICON,
         schedule: { at: nextAt((s.reminderHour + 2) % 24, s.reminderMinute), allowWhileIdle: true },
       });
     }
@@ -107,7 +116,7 @@ async function fireNow({ id, title, body }) {
   if (!LN) return 'unsupported';
   if (!(await ensurePermission())) return 'blocked';
   // No `schedule` key ⇒ immediate NotificationManager.notify() on Android.
-  await LN.schedule({ notifications: [{ id, title, body }] });
+  await LN.schedule({ notifications: [{ id, title, body, largeIcon: LARGE_ICON }] });
   return 'sent';
 }
 
