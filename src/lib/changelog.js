@@ -2,6 +2,14 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.3',
+    date: '2026-07-19',
+    notes: [
+      'Fixed the “Send a test reminder” button: the test notification now appears instantly instead of silently never arriving.',
+      'Friend requests and streak-freeze gifts now show their notification reliably, the moment they happen.',
+    ],
+  },
+  {
     version: '7.2.2',
     date: '2026-07-19',
     notes: [

@@ -86,20 +86,33 @@ export async function rescheduleReminders({ streak = 0, goalMet = false } = {}) 
   }
 }
 
+/**
+ * Fires a notification *right now*, reliably. A notification with no `schedule`
+ * is posted straight through Android's NotificationManager.notify() — it never
+ * touches AlarmManager, so it can't be dropped by Doze, battery optimisation, or
+ * a revoked "Alarms & reminders" permission. That path is why the old
+ * `schedule: { at: now + Xms }` version could silently no-op on some devices:
+ * a near-future *alarm* is not the same as posting a notification, and OEM ROMs
+ * routinely swallow short alarms. Everything that should appear immediately
+ * (friend request, streak-freeze gift, the Settings test) goes through here.
+ */
+async function fireNow({ id, title, body }) {
+  const LN = await plugin();
+  if (!LN) return 'unsupported';
+  if (!(await ensurePermission())) return 'blocked';
+  // No `schedule` key ⇒ immediate NotificationManager.notify() on Android.
+  await LN.schedule({ notifications: [{ id, title, body }] });
+  return 'sent';
+}
+
 /** Fires immediately when a friend request arrives while the app is open. */
 export async function notifyFriendRequest(name) {
-  const LN = await plugin();
-  if (!LN) return;
   if (!getSettings().notifications) return;
   try {
-    if (!(await ensurePermission())) return;
-    await LN.schedule({
-      notifications: [{
-        id: REQUEST_ID,
-        title: 'New friend request',
-        body: `${name} wants to connect on VocabMaster.`,
-        schedule: { at: new Date(Date.now() + 500) },
-      }],
+    await fireNow({
+      id: REQUEST_ID,
+      title: 'New friend request',
+      body: `${name} wants to connect on VocabMaster.`,
     });
   } catch {
     // best-effort
@@ -108,18 +121,12 @@ export async function notifyFriendRequest(name) {
 
 /** Fires immediately when a friend gifts you a streak freeze while the app is open. */
 export async function notifyFreezeGift(name) {
-  const LN = await plugin();
-  if (!LN) return;
   if (!getSettings().notifications) return;
   try {
-    if (!(await ensurePermission())) return;
-    await LN.schedule({
-      notifications: [{
-        id: GIFT_ID,
-        title: 'You got a streak freeze ❄️',
-        body: `${name} gave you a streak freeze to protect your streak.`,
-        schedule: { at: new Date(Date.now() + 500) },
-      }],
+    await fireNow({
+      id: GIFT_ID,
+      title: 'You got a streak freeze ❄️',
+      body: `${name} gave you a streak freeze to protect your streak.`,
     });
   } catch {
     // best-effort
@@ -127,29 +134,22 @@ export async function notifyFreezeGift(name) {
 }
 
 /**
- * Fires a reminder right now so the user can confirm, on their own device, that
- * delivery + sound + vibration actually work. The daily reminders use the exact
- * same plugin, channel and payload shape, so a working test means a working
- * schedule — it just removes the "did it silently break?" doubt of a nudge that
- * isn't due until tonight. Returns a status the caller can surface:
- *   'sent'        – handed to the OS scheduler
+ * Posts a reminder right now so the user can confirm, on their own device, that
+ * notifications + sound + vibration actually work. Uses the immediate notify()
+ * path (see fireNow) rather than a scheduled alarm, so it appears the instant it's
+ * tapped — no waiting, no Doze, no exact-alarm permission. Returns a status the
+ * caller can surface:
+ *   'sent'        – posted to the notification shade
  *   'blocked'     – native, but notifications aren't permitted (guide to settings)
  *   'unsupported' – not running on a device (web/tests)
  */
 export async function sendTestReminder() {
-  const LN = await plugin();
-  if (!LN) return 'unsupported';
   try {
-    if (!(await ensurePermission())) return 'blocked';
-    await LN.schedule({
-      notifications: [{
-        id: TEST_ID,
-        title: 'Test reminder ✅',
-        body: 'Notifications are working. Your daily practice reminders will arrive like this.',
-        schedule: { at: new Date(Date.now() + 800), allowWhileIdle: true },
-      }],
+    return await fireNow({
+      id: TEST_ID,
+      title: 'Test reminder ✅',
+      body: 'Notifications are working. Your daily practice reminders will arrive like this.',
     });
-    return 'sent';
   } catch {
     return 'blocked';
   }
