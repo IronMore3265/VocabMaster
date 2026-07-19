@@ -5,7 +5,7 @@ import { DAILY_GOALS, deleteAccount, resetProgress, updateDailyGoal } from '../a
 import { clearCache, fetchStreakState } from '../api/queries.js';
 import { fetchMyProfile, fetchMyStats } from '../api/friends.js';
 import { avatarTile } from '../avatars.js';
-import { cancelAllReminders, ensurePermission, rescheduleReminders, sendTestReminder } from '../lib/notifications.js';
+import { cancelAllReminders, ensurePermission, rescheduleReminders } from '../lib/notifications.js';
 import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
 import {
   bindThemeChooser, bindTimeWheel, bindToggles, confirmSheet, esc, icon, showChangelogSheet,
@@ -80,13 +80,6 @@ export function render() {
           ${icon('chevron_right', 'text-outline-variant')}
         </button>
       </div>
-      <div data-reminder-test-row class="${s.notifications ? '' : 'hidden'} border-t border-progress-track flex items-center justify-between py-3.5">
-        <div class="flex flex-col pr-4">
-          <span class="text-body-md text-on-surface">Send a test reminder</span>
-          <span class="text-body-sm text-on-surface-variant">Check notifications, sound and vibration work now</span>
-        </div>
-        <button data-reminder-test class="shrink-0 bg-surface-container rounded-lg px-4 py-2 text-body-sm text-on-surface active:opacity-70 transition-opacity">Test</button>
-      </div>
     `)}
 
     ${section('About', `
@@ -139,7 +132,6 @@ export function mount(root) {
   }
 
   const reminderTime = root.querySelector('[data-reminder-time]');
-  const reminderTestRow = root.querySelector('[data-reminder-test-row]');
   bindToggles(root, async (key, on) => {
     if (key === 'notifications') {
       // Honour the user's choice immediately and keep the switch where they left it —
@@ -147,7 +139,6 @@ export function mount(root) {
       // to enable it; the reminder scheduler already no-ops safely until it's granted.
       setSettings({ notifications: on });
       reminderTime?.classList.toggle('hidden', !on);
-      reminderTestRow?.classList.toggle('hidden', !on);
       if (!on) { cancelAllReminders(); return; }
       if (await ensurePermission()) {
         reschedule();
@@ -184,36 +175,6 @@ export function mount(root) {
       showSheet(`
         <h2 class="text-headline-sm font-headline text-on-surface mb-2">Couldn't save goal</h2>
         <p class="text-body-md text-on-surface-variant mb-4">${esc(String(err?.message || err))}</p>
-        <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
-    }
-  });
-
-  // ---------- test reminder ----------
-  // Fires a notification right now so the user can confirm on their own device that
-  // delivery + sound + vibration work. The daily reminders share the exact same
-  // plugin path, so a working test is proof the schedule will fire too.
-  root.querySelector('[data-reminder-test]')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    const prev = btn.textContent;
-    btn.textContent = 'Sending…';
-    const status = await sendTestReminder();
-    btn.disabled = false;
-    btn.textContent = prev;
-    if (status === 'sent') {
-      showSheet(`
-        <h2 class="text-headline-sm font-headline text-on-surface mb-2">Test reminder sent</h2>
-        <p class="text-body-md text-on-surface-variant mb-4">It should arrive in a moment. If you don't see it, check that notifications are enabled for VocabMaster in your device settings, and that battery optimisation isn't blocking it.</p>
-        <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
-    } else if (status === 'blocked') {
-      showSheet(`
-        <h2 class="text-headline-sm font-headline text-on-surface mb-2">Notifications are off</h2>
-        <p class="text-body-md text-on-surface-variant mb-4">VocabMaster can't send reminders until you allow notifications for it in your device settings.</p>
-        <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
-    } else {
-      showSheet(`
-        <h2 class="text-headline-sm font-headline text-on-surface mb-2">Not available here</h2>
-        <p class="text-body-md text-on-surface-variant mb-4">Reminders only run on the installed Android app, not in the browser preview.</p>
         <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">OK</button>`);
     }
   });

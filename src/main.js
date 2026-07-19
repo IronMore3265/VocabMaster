@@ -16,7 +16,7 @@ import {
 import { fetchStreakState } from './api/queries.js';
 import { fetchFriends, fetchMyStats } from './api/friends.js';
 import { syncDailyGoal } from './api/account.js';
-import { cancelAllReminders, rescheduleReminders } from './lib/notifications.js';
+import { cancelAllReminders, ensurePermission, rescheduleReminders } from './lib/notifications.js';
 import {
   checkMissedFreezeGifts, markFreezeGiftSeen, primeLevelBaseline, showFreezeGiftCelebration,
 } from './lib/streakCelebration.js';
@@ -137,8 +137,15 @@ async function refreshRemindersAndBadge() {
       fetchFriends().catch(() => ({ incoming: [] })),
     ]);
     setUnseenRequests((lists.incoming?.length ?? 0) > getSeenRequestCount());
-    if (getSettings().notifications && me) {
-      await rescheduleReminders({ streak: me.streak, goalMet: me.todayXp >= me.goal });
+    if (getSettings().notifications) {
+      // Surface the OS permission prompt on launch/resume when reminders are on but
+      // permission is missing — the user opted in, so keep asking until the OS
+      // stops allowing prompts. Runs even offline (me === null), where there are
+      // no fresh stats to schedule against but the prompt must still appear.
+      const allowed = await ensurePermission();
+      if (allowed && me) {
+        await rescheduleReminders({ streak: me.streak, goalMet: me.todayXp >= me.goal });
+      }
     }
   } catch { /* best-effort */ }
 }

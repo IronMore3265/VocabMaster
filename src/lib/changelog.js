@@ -2,6 +2,15 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.4',
+    date: '2026-07-19',
+    notes: [
+      'Notifications actually work now: a bug made every notification call silently stall, so daily reminders were never scheduled and nothing ever arrived. Fixed and verified on a real device — the permission prompt appears and notifications are delivered instantly.',
+      'Removed the “Send a test reminder” button from Settings — it was only there to debug delivery, which is now confirmed working.',
+      'If practice reminders are on but the notification permission is missing, the app now asks for it right when it opens — no need to visit Settings.',
+    ],
+  },
+  {
     version: '7.2.3',
     date: '2026-07-19',
     notes: [

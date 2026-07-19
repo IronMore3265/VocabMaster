@@ -9,15 +9,21 @@ const STREAK_ID = 1001; // daily "keep your streak" reminder
 const NUDGE_ID = 1002; // gentle friends nudge, a bit later
 const REQUEST_ID = 2001; // "someone added you" heads-up (fires immediately)
 const GIFT_ID = 2002; // "someone gave you a streak freeze" heads-up
-const TEST_ID = 3001; // "test reminder" fired on demand from Settings
 
 let pluginPromise = null;
 
+// Resolves to the plugin *module*, never the LocalNotifications proxy itself.
+// The proxy routes every property access — including `then` — to a native
+// method call, so letting it pass through promise resolution (returning it
+// from an async function, resolving a promise with it) makes the engine treat
+// it as a thenable and call the nonexistent native `LocalNotifications.then()`:
+// the resolve callback is never invoked and every `await` upstream hangs
+// forever. Callers must deref `.LocalNotifications` only *after* awaiting.
 async function plugin() {
   try {
     if (!Capacitor.isNativePlatform()) return null;
     if (!pluginPromise) pluginPromise = import('@capacitor/local-notifications');
-    return (await pluginPromise).LocalNotifications;
+    return await pluginPromise;
   } catch {
     return null; // plugin not installed / not native
   }
@@ -25,7 +31,7 @@ async function plugin() {
 
 /** Requests OS permission; returns true if granted. Safe to call repeatedly. */
 export async function ensurePermission() {
-  const LN = await plugin();
+  const LN = (await plugin())?.LocalNotifications;
   if (!LN) return false;
   try {
     let perm = await LN.checkPermissions();
@@ -52,7 +58,7 @@ function nextAt(hour, minute = 0) {
  * chosen hour. Idempotent — fixed IDs mean re-scheduling replaces, never stacks.
  */
 export async function rescheduleReminders({ streak = 0, goalMet = false } = {}) {
-  const LN = await plugin();
+  const LN = (await plugin())?.LocalNotifications;
   if (!LN) return;
   const s = getSettings();
 
@@ -94,10 +100,10 @@ export async function rescheduleReminders({ streak = 0, goalMet = false } = {}) 
  * `schedule: { at: now + Xms }` version could silently no-op on some devices:
  * a near-future *alarm* is not the same as posting a notification, and OEM ROMs
  * routinely swallow short alarms. Everything that should appear immediately
- * (friend request, streak-freeze gift, the Settings test) goes through here.
+ * (friend request, streak-freeze gift) goes through here.
  */
 async function fireNow({ id, title, body }) {
-  const LN = await plugin();
+  const LN = (await plugin())?.LocalNotifications;
   if (!LN) return 'unsupported';
   if (!(await ensurePermission())) return 'blocked';
   // No `schedule` key ⇒ immediate NotificationManager.notify() on Android.
@@ -133,30 +139,8 @@ export async function notifyFreezeGift(name) {
   }
 }
 
-/**
- * Posts a reminder right now so the user can confirm, on their own device, that
- * notifications + sound + vibration actually work. Uses the immediate notify()
- * path (see fireNow) rather than a scheduled alarm, so it appears the instant it's
- * tapped — no waiting, no Doze, no exact-alarm permission. Returns a status the
- * caller can surface:
- *   'sent'        – posted to the notification shade
- *   'blocked'     – native, but notifications aren't permitted (guide to settings)
- *   'unsupported' – not running on a device (web/tests)
- */
-export async function sendTestReminder() {
-  try {
-    return await fireNow({
-      id: TEST_ID,
-      title: 'Test reminder ✅',
-      body: 'Notifications are working. Your daily practice reminders will arrive like this.',
-    });
-  } catch {
-    return 'blocked';
-  }
-}
-
 export async function cancelAllReminders() {
-  const LN = await plugin();
+  const LN = (await plugin())?.LocalNotifications;
   if (!LN) return;
   try {
     await LN.cancel({ notifications: [{ id: STREAK_ID }, { id: NUDGE_ID }] });
