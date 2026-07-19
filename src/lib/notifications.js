@@ -9,6 +9,7 @@ const STREAK_ID = 1001; // daily "keep your streak" reminder
 const NUDGE_ID = 1002; // gentle friends nudge, a bit later
 const REQUEST_ID = 2001; // "someone added you" heads-up (fires immediately)
 const GIFT_ID = 2002; // "someone gave you a streak freeze" heads-up
+const TEST_ID = 3001; // "test reminder" fired on demand from Settings
 
 let pluginPromise = null;
 
@@ -122,6 +123,35 @@ export async function notifyFreezeGift(name) {
     });
   } catch {
     // best-effort
+  }
+}
+
+/**
+ * Fires a reminder right now so the user can confirm, on their own device, that
+ * delivery + sound + vibration actually work. The daily reminders use the exact
+ * same plugin, channel and payload shape, so a working test means a working
+ * schedule — it just removes the "did it silently break?" doubt of a nudge that
+ * isn't due until tonight. Returns a status the caller can surface:
+ *   'sent'        – handed to the OS scheduler
+ *   'blocked'     – native, but notifications aren't permitted (guide to settings)
+ *   'unsupported' – not running on a device (web/tests)
+ */
+export async function sendTestReminder() {
+  const LN = await plugin();
+  if (!LN) return 'unsupported';
+  try {
+    if (!(await ensurePermission())) return 'blocked';
+    await LN.schedule({
+      notifications: [{
+        id: TEST_ID,
+        title: 'Test reminder ✅',
+        body: 'Notifications are working. Your daily practice reminders will arrive like this.',
+        schedule: { at: new Date(Date.now() + 800), allowWhileIdle: true },
+      }],
+    });
+    return 'sent';
+  } catch {
+    return 'blocked';
   }
 }
 

@@ -217,9 +217,14 @@ export function mount(root, packId) {
       el.querySelector('[data-got]').addEventListener('click', () => advance(true));
     } else {
       const isLast = index === words.length - 1;
-      // On the last card the forward arrow becomes a tick that finishes the session.
+      // On the last card the forward arrow becomes a green tick that finishes the
+      // session. It gets its own class rather than `${round} bg-secondary`: `round`
+      // carries `bg-surface`, and two competing bg-* utilities resolve by stylesheet
+      // order, not attribute order — surface would win and leave a white check on a
+      // white button.
+      const finishBtn = `w-14 h-14 rounded-full bg-secondary text-on-secondary shadow-card flex items-center justify-center active:scale-95 transition-transform`;
       const nextBtn = isLast
-        ? `<button data-finish class="${round} bg-secondary" aria-label="Finish">${icon('check', 'text-[24px] text-on-secondary')}</button>`
+        ? `<button data-finish class="${finishBtn}" aria-label="Finish">${icon('check', 'text-[24px]')}</button>`
         : `<button data-next class="${round}">${icon('arrow_forward', 'text-[24px] text-on-surface')}</button>`;
       el.innerHTML = `
       <div class="flex items-center justify-center gap-4">

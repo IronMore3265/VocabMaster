@@ -2,6 +2,14 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.2',
+    date: '2026-07-19',
+    notes: [
+      'On the last flashcard the finish button now shows a clearly visible green tick — it was blending into the button before.',
+      'Added a “Send a test reminder” button in Settings so you can check notifications, sound and vibration work on your device right away.',
+    ],
+  },
+  {
     version: '7.2.1',
     date: '2026-07-19',
     notes: [
