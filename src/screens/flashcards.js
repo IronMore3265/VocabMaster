@@ -192,10 +192,12 @@ export function mount(root, packId) {
     els.scrollHint.classList.toggle('hidden', !overflows);
   }
 
-  // Facing the word: prev / Flip Card / next. Flipped: self-grade — a red
-  // "Again" and a green "Got it" — which is what logs the review (2 XP for a
-  // know, 1 for a miss; the server treats flashcards as review-only, so neither
-  // touches the SRS box).
+  // Facing the word: prev / Flip Card / next — except on the last card, where the
+  // forward arrow becomes a tick that ends the session, so a word you already know
+  // can be finished without flipping. Flipped: self-grade — a red "Again" that just
+  // flips the card back to keep studying it (logs nothing, stays put) and a green
+  // "Got it" that logs the review (a flat 2 XP) and advances. The server treats
+  // flashcards as review-only, so neither touches the SRS box.
   function drawControls() {
     const el = els.controls;
     const round = `w-14 h-14 rounded-full bg-surface shadow-card flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40`;
@@ -209,20 +211,31 @@ export function mount(root, packId) {
           ${icon('check', 'text-[22px]')}<span class="text-[16px] font-headline">Got it</span>
         </button>
       </div>`;
-      el.querySelector('[data-again]').addEventListener('click', () => advance(false));
+      // "Again": flip back to the word and keep studying this card — no grade, no
+      // advance. Green tick logs it (2 XP) and moves on.
+      el.querySelector('[data-again]').addEventListener('click', () => { haptic.medium(); setFlipped(false); drawControls(); });
       el.querySelector('[data-got]').addEventListener('click', () => advance(true));
     } else {
+      const isLast = index === words.length - 1;
+      // On the last card the forward arrow becomes a tick that finishes the session.
+      const nextBtn = isLast
+        ? `<button data-finish class="${round} bg-secondary" aria-label="Finish">${icon('check', 'text-[24px] text-on-secondary')}</button>`
+        : `<button data-next class="${round}">${icon('arrow_forward', 'text-[24px] text-on-surface')}</button>`;
       el.innerHTML = `
       <div class="flex items-center justify-center gap-4">
         <button data-prev class="${round}" ${index === 0 ? 'disabled' : ''}>${icon('arrow_back', 'text-[24px] text-on-surface')}</button>
         <button data-flipbtn class="flex-1 h-14 rounded-full bg-primary text-on-primary flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
           ${icon('flip', 'text-[22px]')}<span class="text-[16px] font-headline">Flip Card</span>
         </button>
-        <button data-next class="${round}" ${index === words.length - 1 ? 'disabled' : ''}>${icon('arrow_forward', 'text-[24px] text-on-surface')}</button>
+        ${nextBtn}
       </div>`;
       el.querySelector('[data-flipbtn]').addEventListener('click', toggleFlip);
       el.querySelector('[data-prev]').addEventListener('click', () => go(-1));
-      el.querySelector('[data-next]').addEventListener('click', () => go(1));
+      if (isLast) {
+        el.querySelector('[data-finish]').addEventListener('click', () => advance(true));
+      } else {
+        el.querySelector('[data-next]').addEventListener('click', () => go(1));
+      }
     }
   }
 

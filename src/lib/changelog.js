@@ -2,6 +2,15 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.1',
+    date: '2026-07-19',
+    notes: [
+      'Every flashcard you know is now worth a flat 2 XP — there’s no longer a smaller reward for a miss.',
+      '“Again” now keeps you on the same card: it flips back to the word so you can study it again, instead of skipping ahead.',
+      'On the last card you can finish with the green tick without flipping — handy when you already know the word.',
+    ],
+  },
+  {
     version: '7.2.0',
     date: '2026-07-18',
     notes: [

@@ -18,9 +18,11 @@ export const DEVICE_TZ = (() => {
 // ---------- XP ----------
 // The single client-side source of XP truth; mirrors xp_for() in migration 0011.
 // Flashcards are self-graded and cheap (a full pack tops out at ~40 XP, below the
-// Regular goal), so real recall exercises are what actually move the streak.
+// Regular goal), so real recall exercises are what actually move the streak. Every
+// logged flashcard is worth a flat 2 XP — "Again" just re-studies the card and never
+// records an attempt, so a flashcard is never a "miss".
 export const XP_WEIGHTS = {
-  flashcard: { correct: 2, wrong: 1 },
+  flashcard: { correct: 2, wrong: 2 },
   default: { correct: 5, wrong: 1 },
 };
 
