@@ -2,6 +2,14 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.2.6',
+    date: '2026-07-20',
+    notes: [
+      'Finishing a flashcard session no longer shows a score — flashcards are just review, so you now see a “Session complete!” recap with the words reviewed and XP earned instead of a right/wrong percentage.',
+      'Long example sentences on the back of a card are no longer cut off: they show a short preview with a “Tap to read” hint, and tapping opens the full sentence.',
+    ],
+  },
+  {
     version: '7.2.5',
     date: '2026-07-19',
     notes: [

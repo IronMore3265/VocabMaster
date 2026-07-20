@@ -121,6 +121,9 @@ export function mount(root, packId) {
 
     els.flip.addEventListener('click', (e) => {
       if (e.target.closest('[data-speak]')) return;
+      // Tapping an example expands/collapses its full text without flipping the card.
+      const box = e.target.closest('[data-example]');
+      if (box) { toggleExample(box); return; }
       toggleFlip();
     });
     body.querySelector('[data-speak]').addEventListener('click', () => speak(words[index].word));
@@ -144,7 +147,11 @@ export function mount(root, packId) {
         <div class="flex flex-col gap-1.5">
           <span class="text-label-sm uppercase text-on-surface-variant">Example${examples.length > 1 ? 's' : ''}</span>
           <div class="flex flex-col gap-2">
-            ${examples.map((ex) => `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-md text-on-surface-variant italic">${esc(ex)}</p></div>`).join('')}
+            ${examples.map((ex) => `
+              <div data-example class="bg-surface-container-low rounded-xl p-3.5 cursor-pointer">
+                <p data-example-text class="text-body-md text-on-surface-variant italic line-clamp-2">${esc(ex)}</p>
+                <span data-example-more class="hidden mt-1.5 text-label-sm uppercase text-primary">Tap to read</span>
+              </div>`).join('')}
           </div>
         </div>` : ''}
       ${pillRow('Synonyms', word.synonyms, 'bg-secondary-container text-on-secondary-container')}
@@ -152,8 +159,24 @@ export function mount(root, packId) {
       ${word.notes ? `<div class="bg-surface-container-low rounded-xl p-3.5"><p class="text-body-sm text-on-surface-variant">${esc(word.notes)}</p></div>` : ''}`;
 
     els.backScroll.scrollTop = 0;
+    // Reveal the "Tap to read" hint only on examples long enough to be clamped.
+    els.backContent.querySelectorAll('[data-example]').forEach((box) => {
+      const p = box.querySelector('[data-example-text]');
+      if (p.scrollHeight - p.clientHeight > 1) box.querySelector('[data-example-more]').classList.remove('hidden');
+    });
     setFlipped(false);
     drawControls();
+  }
+
+  // Expand a clamped example to its full text (or collapse it back). Grows the card
+  // to fit so the revealed sentence isn't cut off by the card's height.
+  function toggleExample(box) {
+    haptic.light();
+    const p = box.querySelector('[data-example-text]');
+    const open = p.classList.toggle('line-clamp-2') === false;
+    const more = box.querySelector('[data-example-more]');
+    if (more) more.textContent = open ? 'Tap to collapse' : 'Tap to read';
+    resizeScene();
   }
 
   function setFlipped(next) {
@@ -257,7 +280,7 @@ export function mount(root, packId) {
     if (gotIt) correctCount++;
     if (index === words.length - 1) {
       // The results screen runs the post-session celebrations.
-      navigate(`#/results/${correctCount}/${words.length}`, { replace: true });
+      navigate(`#/results/${correctCount}/${words.length}/review`, { replace: true });
       return;
     }
     index++;

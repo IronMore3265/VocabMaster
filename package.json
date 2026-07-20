@@ -1,6 +1,6 @@
 {
   "name": "vocabmaster",
-  "version": "7.2.5",
+  "version": "7.2.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "assets": "node scripts/generate-brand-assets.mjs && capacitor-assets generate --android",
     "cap:sync": "cap sync android",
-    "cap:open": "cap open android"
+    "cap:open": "cap open android",
+    "release:apk": "node scripts/release-apk.mjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
