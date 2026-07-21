@@ -9,7 +9,7 @@
 // wake for relevant changes.
 import { supabase } from '../supabase.js';
 import { invalidate } from './queries.js';
-import { notifyFreezeGift, notifyFriendRequest } from '../lib/notifications.js';
+import { notifyFreezeGift, notifyFriendRequest, notifyNudge } from '../lib/notifications.js';
 
 let channel = null;
 let currentUserId = null;
@@ -41,6 +41,14 @@ function open() {
         announceGift(payload.new?.sender_id, payload.new?.created_at);
       },
     )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'nudges', filter: `recipient_id=eq.${currentUserId}` },
+      (payload) => {
+        // A friend nudged us to practise: raise a local heads-up.
+        announceNudge(payload.new?.sender_id);
+      },
+    )
     .subscribe();
 }
 
@@ -66,6 +74,16 @@ async function announceRequest(friendId) {
     if (data?.display_name) name = data.display_name;
   } catch { /* name is a nicety; the notification still fires without it */ }
   notifyFriendRequest(name);
+}
+
+async function announceNudge(senderId) {
+  let name = 'A friend';
+  try {
+    const { data } = await supabase
+      .from('profiles').select('display_name').eq('id', senderId).single();
+    if (data?.display_name) name = data.display_name;
+  } catch { /* name is a nicety; the notification still fires without it */ }
+  notifyNudge(name);
 }
 
 function close() {

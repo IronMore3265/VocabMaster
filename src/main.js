@@ -54,7 +54,7 @@ const routes = [
   { pattern: /^#\/practice\/(\d+)\/flashcards$/, screen: flashcards },
   { pattern: /^#\/practice\/(\d+)\/matching$/, screen: matching },
   { pattern: /^#\/practice\/(\d+)\/fill-blank$/, screen: fillBlank },
-  { pattern: /^#\/practice\/(\d+)\/syn-ant$/, screen: synAnt },
+  { pattern: /^#\/practice\/(\d+)\/syn-ant(?:\/(full))?$/, screen: synAnt },
   { pattern: /^#\/practice\/ai$/, screen: ai },
   { pattern: /^#\/results\/(\d+)\/(\d+)(?:\/(\w+))?$/, screen: results },
   { pattern: /^#\/settings$/, screen: settings },

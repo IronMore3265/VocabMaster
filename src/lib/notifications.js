@@ -9,6 +9,7 @@ const STREAK_ID = 1001; // daily "keep your streak" reminder
 const NUDGE_ID = 1002; // gentle friends nudge, a bit later
 const REQUEST_ID = 2001; // "someone added you" heads-up (fires immediately)
 const GIFT_ID = 2002; // "someone gave you a streak freeze" heads-up
+const NUDGE_MSG_ID = 2003; // "a friend nudged you to practise" heads-up
 
 // The full-colour VocabMaster mark (blue tile, white book) shown as the
 // notification's large icon — a raster PNG in res/drawable-nodpi. This is the
@@ -142,6 +143,20 @@ export async function notifyFreezeGift(name) {
       id: GIFT_ID,
       title: 'You got a streak freeze ❄️',
       body: `${name} gave you a streak freeze to protect your streak.`,
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+/** Fires immediately when a friend nudges you while the app is open. */
+export async function notifyNudge(name) {
+  if (!getSettings().notifications) return;
+  try {
+    await fireNow({
+      id: NUDGE_MSG_ID,
+      title: 'A friendly nudge 👋',
+      body: `${name} nudged you — practise now to keep your streak going!`,
     });
   } catch {
     // best-effort

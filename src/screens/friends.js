@@ -1,6 +1,6 @@
 import {
   acceptFriend, addFriendByCode, fetchFriendFreezes, fetchFriends, fetchMutualStreaks,
-  fetchMyCode, fetchMyStats, giftStreakFreeze, removeFriend,
+  fetchMyCode, fetchMyStats, giftStreakFreeze, nudgeFriend, removeFriend,
 } from '../api/friends.js';
 import { invalidate } from '../api/queries.js';
 import { avatarTile } from '../avatars.js';
@@ -113,8 +113,32 @@ export function mount(root) {
         });
       }));
 
+    body.querySelectorAll('[data-nudge]').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        nudge(btn.getAttribute('data-nudge'), btn);
+      }));
+
     body.querySelectorAll('[data-compare]').forEach((btn) =>
       btn.addEventListener('click', () => navigate(`#/friends/compare/${btn.getAttribute('data-compare')}`)));
+  }
+
+  async function nudge(id, btn) {
+    const f = model?.accepted.find((x) => x.id === id);
+    if (btn) btn.disabled = true;
+    try {
+      await nudgeFriend(id);
+      haptic.success();
+      // Keep the button disabled for the rest of the session — the server caps it
+      // at one nudge per day anyway.
+      showSheet(`
+        <h2 class="text-headline-sm font-headline text-on-surface mb-2">Nudge sent 👋</h2>
+        <p class="text-body-md text-on-surface-variant mb-4">${esc(f ? f.name : 'Your friend')} will get a reminder to keep their streak going.</p>
+        <button data-close class="w-full py-3 rounded-full bg-primary text-on-primary text-body-sm">Done</button>`);
+    } catch (err) {
+      if (btn) btn.disabled = false;
+      errorSheet(err);
+    }
   }
 
   // Optimistic: move the request into the friends list right away, then confirm.
@@ -275,6 +299,9 @@ function streakBadge(s = {}, meToday = false) {
 function friendRow(f, mutual, freezes, meToday) {
   // A friend can be gifted a freeze only when they hold fewer than the cap of 2.
   const canGift = typeof freezes === 'number' && freezes < 2;
+  // Nudge a friend who hasn't finished today's goal yet (friendToday is false, or
+  // unknown) — nothing to nudge about once they're done.
+  const canNudge = !mutual?.friendToday;
   return `
   <div class="flex items-center gap-3 py-3 border-b border-progress-track last:border-0">
     <button data-compare="${esc(f.id)}" data-online-only class="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70 transition-opacity">
@@ -283,6 +310,11 @@ function friendRow(f, mutual, freezes, meToday) {
       ${streakBadge(mutual, meToday)}
       ${icon('chevron_right', 'text-outline-variant shrink-0')}
     </button>
+    ${canNudge ? `
+    <button data-nudge="${esc(f.id)}" data-online-only aria-label="Nudge ${esc(f.name)} to practise" title="Nudge to keep the streak"
+      class="p-2 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">
+      ${icon('notifications', 'text-[18px]')}
+    </button>` : ''}
     ${canGift ? `
     <button data-gift="${esc(f.id)}" aria-label="Gift ${esc(f.name)} a streak freeze" title="Gift a streak freeze"
       class="p-2 rounded-full text-primary active:opacity-70 transition-opacity shrink-0">

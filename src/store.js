@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS = {
   notifications: false, // local practice reminders (opt-in, needs OS permission)
   reminderHour: 20, // hour of day (0-23) for the daily streak reminder
   reminderMinute: 0, // minute (0-59) for the daily streak reminder
+  synAntMode: 'quick', // remembered Synonym/Antonym scope: 'quick' | 'full'
 };
 
 export function getSettings() {

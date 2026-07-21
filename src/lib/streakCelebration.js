@@ -298,15 +298,25 @@ export async function primeLevelBaseline() {
 // we last celebrated. Stamps every crossing (even the silent level-1 baseline) so
 // it never replays.
 async function maybeCelebrateLevelUp() {
-  try {
+  const celebrated = getLevelCelebrated();
+  // The last answer's write may still be in flight (recordAttempt is fire-and-
+  // forget before we route to results), so a single read can miss the very
+  // crossing we're here to celebrate. Retry until the fresh XP shows the higher
+  // level, mirroring maybeCelebrateStreak.
+  let level = celebrated;
+  for (let i = 0; i < 3; i++) {
     invalidate('attempt-events');
-    const level = levelForXp(totalXp(await fetchAttemptEvents())).level;
-    const celebrated = getLevelCelebrated();
-    if (level > celebrated) {
-      setLevelCelebrated(level);
-      if (level > 1) await showLevelCelebration({ level });
-    }
-  } catch { /* best-effort */ }
+    try {
+      level = levelForXp(totalXp(await fetchAttemptEvents())).level;
+      if (level > celebrated) break;
+    } catch { /* retry */ }
+    if (i < 2) await new Promise((r) => setTimeout(r, 450));
+  }
+  if (level <= celebrated) return;
+  // Stamp only after the animation actually runs, so a level is never silently
+  // burned if the celebration is skipped or the user backs out mid-flow.
+  if (level > 1) await showLevelCelebration({ level });
+  setLevelCelebrated(level);
 }
 
 /**

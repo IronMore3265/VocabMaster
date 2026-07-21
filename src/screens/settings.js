@@ -6,7 +6,7 @@ import { clearCache, fetchStreakState } from '../api/queries.js';
 import { fetchMyProfile, fetchMyStats } from '../api/friends.js';
 import { avatarTile } from '../avatars.js';
 import { cancelAllReminders, ensurePermission, rescheduleReminders } from '../lib/notifications.js';
-import { canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
+import { RELEASES_URL, canInstallInApp, checkForUpdate, installUpdate, openExternal } from '../lib/updates.js';
 import {
   bindThemeChooser, bindTimeWheel, bindToggles, confirmSheet, esc, icon, showChangelogSheet,
   showSheet, subHeader, themeChooser, timeWheel, toggleRow,
@@ -245,8 +245,16 @@ export function mount(root) {
       } else {
         updateStatus.textContent = 'Up to date';
       }
-    } catch {
-      updateStatus.textContent = 'Check failed';
+    } catch (err) {
+      // Surface the real reason (rate limit, offline, blocked host) instead of a
+      // blanket "check failed", and always offer a manual path to the release page
+      // so an update is reachable even when the automatic check can't run.
+      const reason = String(err?.message || err) || 'Check failed';
+      updateStatus.innerHTML =
+        `<button data-open-releases class="text-primary underline underline-offset-2 active:opacity-70">Open releases</button>`;
+      updateStatus.title = reason;
+      updateStatus.querySelector('[data-open-releases]')
+        ?.addEventListener('click', () => openExternal(RELEASES_URL));
     } finally {
       checking = false;
     }

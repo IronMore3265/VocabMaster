@@ -1,7 +1,7 @@
 import { lookupWord } from '../api/dictionary.js';
 import { fetchPackWords, fetchPacks, recordAttempt } from '../api/queries.js';
 import { navigate } from '../router.js';
-import { haptic, playAudio } from '../lib/feedback.js';
+import { haptic, playAudio, preloadAudio } from '../lib/feedback.js';
 import { posLabel } from '../lib/models.js';
 import { esc, icon, progressBar, setProgress, spinner, subHeader } from '../ui.js';
 
@@ -18,10 +18,47 @@ export function render() {
 // Compact height of the card while it shows the word.
 const BASE_HEIGHT = 380;
 
+// Pronunciation URLs, cached across mounts AND app restarts so a word's
+// dictionary lookup happens at most once, ever. Persisted to localStorage;
+// null means "looked up, no audio exists" (so a known-silent word isn't retried).
+const AUDIO_KEY = 'vm.flashcards.audioUrls';
+const audioUrls = loadAudioUrls();
+
+function loadAudioUrls() {
+  try {
+    const raw = localStorage.getItem(AUDIO_KEY);
+    return new Map(raw ? Object.entries(JSON.parse(raw)) : []);
+  } catch {
+    return new Map();
+  }
+}
+
+function saveAudioUrl(word, url) {
+  audioUrls.set(word, url);
+  try {
+    localStorage.setItem(AUDIO_KEY, JSON.stringify(Object.fromEntries(audioUrls)));
+  } catch {
+    /* storage full/unavailable — the in-memory map still saves the repeat lookup */
+  }
+}
+
+// Resolve (and cache) a word's pronunciation URL. Returns null when none exists.
+async function resolveAudioUrl(headword) {
+  if (audioUrls.has(headword)) return audioUrls.get(headword);
+  let url = null;
+  try {
+    const payload = await lookupWord(headword);
+    url = payload.entries?.find((e) => e.audioUrl)?.audioUrl ?? null;
+  } catch {
+    url = null;
+  }
+  saveAudioUrl(headword, url);
+  return url;
+}
+
 export function mount(root, packId) {
   const id = Number(packId);
   const body = root.querySelector('[data-body]');
-  const audioCache = new Map();
   let pack = null;
   let words = [];
   let index = 0;
@@ -46,15 +83,19 @@ export function mount(root, packId) {
     });
 
   const speak = async (headword) => {
-    let url = audioCache.get(headword);
-    if (url === undefined) {
-      try {
-        const payload = await lookupWord(headword);
-        url = payload.entries?.find((e) => e.audioUrl)?.audioUrl ?? null;
-      } catch { url = null; }
-      audioCache.set(headword, url);
-    }
+    const url = await resolveAudioUrl(headword);
     if (url) playAudio(url);
+  };
+
+  // Warm the current card's pronunciation so tapping speak plays with no wait:
+  // resolve its URL (cached after the first time) and preload the clip's bytes,
+  // but only apply it while this card is still the one on screen.
+  const prefetchCurrent = () => {
+    const word = words[index]?.word;
+    if (!word) return;
+    resolveAudioUrl(word).then((url) => {
+      if (url && words[index]?.word === word) preloadAudio(url);
+    });
   };
 
   function pillRow(label, items, tone) {
@@ -166,6 +207,7 @@ export function mount(root, packId) {
     });
     setFlipped(false);
     drawControls();
+    prefetchCurrent();
   }
 
   // Expand a clamped example to its full text (or collapse it back). Grows the card

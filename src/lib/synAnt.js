@@ -6,21 +6,33 @@ import { mulberry32, pickOne, shuffle } from './rng.js';
  * Distractors are other words' synonyms (same POS preferred); in antonym mode
  * the target's own synonyms are the trap distractors. Words without enrichment
  * fall back to a "closest in meaning" definition MCQ.
+ *
+ * `full` mode drills BOTH relationships for every word — a synonym question *and*
+ * an antonym question wherever the data supports each — so a 20-word pack becomes
+ * up to ~40 questions instead of one-per-word. The default keeps the shorter
+ * single-question-per-word set.
  */
-export function makeSynAntItems(words, seed) {
+export function makeSynAntItems(words, seed, { full = false } = {}) {
   const rng = mulberry32(seed);
+  const eligible = words.filter((word) => word.definition);
 
-  const items = words
-    .filter((word) => word.definition)
-    .map((word) => {
+  const items = full
+    ? eligible.flatMap((word) => {
+      const both = [];
+      if (word.synonyms.length > 0) both.push(synonymItem(word, words, rng));
+      if (word.antonyms.length > 0) both.push(antonymItem(word, words, rng));
+      // No enrichment either way: still give the word a single question.
+      if (both.length === 0) both.push(closestMeaningItem(word, words, rng));
+      return both;
+    })
+    : eligible.map((word) => {
       const wantAntonym = word.antonyms.length > 0 && rng() < 0.4;
       if (wantAntonym) return antonymItem(word, words, rng);
       if (word.synonyms.length > 0) return synonymItem(word, words, rng);
       return closestMeaningItem(word, words, rng);
-    })
-    .filter((item) => item !== null);
+    });
 
-  return shuffle(items, rng);
+  return shuffle(items.filter((item) => item !== null), rng);
 }
 
 function synonymItem(word, pool, rng) {

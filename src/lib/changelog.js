@@ -2,6 +2,17 @@
 // point so anyone can understand what changed. Newest release first.
 export const CHANGELOG = [
   {
+    version: '7.3.0',
+    date: '2026-07-21',
+    notes: [
+      'New Synonym/Antonym option: tapping the exercise now lets you pick “Quick review” (one question per word, as before) or “Full drill”, which tests both the synonym and the antonym of every word in the pack — so you can practise all of them in one session. Your choice is remembered.',
+      'Nudge a friend: friends who haven’t hit today’s goal now show a nudge button, so you can give them a friendly reminder to keep your streaks going together.',
+      'Pronunciation plays instantly on flashcards — the audio is now fetched and preloaded while the card is on screen, and remembered between sessions, so tapping the speaker no longer waits on the network.',
+      'Fixed the in-app update check that could fail with “Check failed” on some networks: it now uses a more reliable source that isn’t rate-limited, shows the real reason if it still can’t check, and always offers a link to the releases page.',
+      'Fixed the level-up celebration sometimes not appearing when you crossed into a new level at the end of a session.',
+    ],
+  },
+  {
     version: '7.2.6',
     date: '2026-07-20',
     notes: [

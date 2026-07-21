@@ -14,8 +14,9 @@ export function render() {
   </main>`;
 }
 
-export function mount(root, packId) {
+export function mount(root, packId, mode) {
   const id = Number(packId);
+  const full = mode === 'full';
   const seed = newSeed();
   const body = root.querySelector('[data-body]');
   let session = null;
@@ -23,7 +24,7 @@ export function mount(root, packId) {
   Promise.all([fetchPacks(), fetchPackWords(id)])
     .then(([packs, words]) => {
       const pack = packs.find((p) => p.id === id);
-      const items = makeSynAntItems(words, seed);
+      const items = makeSynAntItems(words, seed, { full });
       if (!pack || items.length === 0) {
         body.innerHTML = `<p class="text-body-sm text-on-surface-variant text-center py-10">Not enough words to build this exercise.</p>`;
         return;
@@ -32,7 +33,7 @@ export function mount(root, packId) {
         items,
         packId: id,
         exerciseType: 'syn_ant',
-        headerLabel: `Synonym / Antonym · Pack ${pack.pack_number}`,
+        headerLabel: `Synonym / Antonym${full ? ' · Full' : ''} · Pack ${pack.pack_number}`,
         trackTime: true,
       });
     })

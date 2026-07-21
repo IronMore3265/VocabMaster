@@ -261,6 +261,20 @@ export async function giftStreakFreeze(friendId) {
   invalidate('friends:freezes');
 }
 
+/**
+ * Nudge an accepted friend to finish today's goal. The RPC re-checks the friendship
+ * and enforces a once-per-day-per-friend cooldown (its message surfaces via
+ * friendlyError). Delivery is in-app: the friend's Realtime subscription raises a
+ * local heads-up while their app is open, else they see it next time they open it.
+ */
+export async function nudgeFriend(friendId) {
+  const { error } = await supabase.rpc('nudge_friend', {
+    p_friend_id: friendId,
+    p_tz: DEVICE_TZ,
+  });
+  if (error) throw new Error(friendlyError(error));
+}
+
 // The RPCs raise with messages meant for humans; surface those and keep the
 // Postgres noise out of the UI.
 function friendlyError(error) {
